@@ -526,7 +526,7 @@ end
 local MAP_EUA = {
     { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
     { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "....h.ccc...b...h...B....a.a...h..b.." },
-    { name = "TEXAS",         sky = 0xd9a066, lm = lm_texas,      map = "....b..b.ccc..h..h...B...b..a..h..cc." },
+    { name = "TEXAS",         sky = 0xd9a066, lm = lm_texas,      map = "....b..b..ccc..h..h...B...b..a..h..cc." },
     { name = "LAS VEGAS",     sky = 0x222034, lm = lm_vegas,      map = "....h..b..ccc..h..B..h...b..b..a.a..h...", night = true },
     { name = "HOLLYWOOD",     sky = 0xdf7126, lm = lm_hollywood,  map = "....b..h.ccc..B..h..b..h...b..ccc......" },
 }
@@ -535,13 +535,13 @@ local MAP_BRASIL = {
     { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
     { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "....b..h.ccc..b..b..a.a..h..h..B...cc.." },
     { name = "BRASILIA",       sky = 0x5fcde4, lm = lm_brasilia, map = "....h..b..ccc..B..h..b..h..a..b..b..ccc." },
-    { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "....h..b.ccc..h..B..b..h..a.a..b..ccc......", forest = true },
+    { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "....h..b..ccc..h..B..b..h..a.a..b..ccc......", forest = true },
 }
 
 local MAP_CHINA = {
     { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,   map = "......c.c.c...h..b..ccc..B..h..b..a.a..h.." },
     { name = "GRANDE MURALHA", sky = 0x639bff, lm = lm_muralha,  map = "....b..b..ccc..h..h..B..b..a..h..b..cc." },
-    { name = "XANGAI",         sky = 0x5fcde4, lm = lm_xangai,   map = "....h..b.ccc..h..B..b..h..a.a..b..h..ccc." },
+    { name = "XANGAI",         sky = 0x5fcde4, lm = lm_xangai,   map = "....h..b..ccc..h..B..b..h..a.a..b..h..ccc." },
     { name = "HONG KONG",      sky = 0x222034, lm = lm_hongkong, map = "....b..h..ccc..B..h..b..b..a..h..b..ccc......", night = true },
 }
 
@@ -568,24 +568,24 @@ local PHASES = {
       speed = 3.6, regions = MAP_CHINA, bosses = { { id = "xi" } } },
 
     { country = "EUA", card = "GREEN CARDS", tag = "USA", draw_card = draw_green_card,
-      combat = true, speed = 3.0, shot_speed = 3.0, regions = MAP_EUA,
-      bosses = { { id = "trump", hp = 6, fire = 150 } },
+      combat = true, speed = 3.0, shot_speed = 2.8, regions = MAP_EUA,
+      bosses = { { id = "trump", hp = 5, fire = 180 } },
       intro = { "reflect", "goal_combat" } },
     { country = "BRASIL", card = "BOLSAS", tag = "BR", draw_card = draw_bolsa_card,
-      combat = true, speed = 3.2, shot_speed = 3.2, regions = MAP_BRASIL,
-      bosses = { { id = "lula", hp = 7, fire = 140 } } },
+      combat = true, speed = 3.2, shot_speed = 3.0, regions = MAP_BRASIL,
+      bosses = { { id = "lula", hp = 5, fire = 170 } } },
     { country = "CHINA", card = "SOCIAL CREDIT", tag = "CN", draw_card = draw_credit_card,
-      combat = true, speed = 3.4, shot_speed = 3.4, regions = MAP_CHINA,
-      bosses = { { id = "xi", hp = 8, fire = 130 } } },
+      combat = true, speed = 3.4, shot_speed = 3.2, regions = MAP_CHINA,
+      bosses = { { id = "xi", hp = 6, fire = 160 } } },
 
     { country = "COREIA DO NORTE", card = "VISTOS", tag = "NK", draw_card = draw_visa_card,
-      combat = true, final = true, kame = true, speed = 3.4, shot_speed = 3.4, regions = MAP_COREIA,
+      combat = true, final = true, kame = true, speed = 3.4, shot_speed = 3.2, regions = MAP_COREIA,
       -- Kim e o chefe mais forte: mais vida e atira mais vezes
       bosses = {
-          { id = "kim",   hp = 12, fire = 200 },
-          { id = "xi",    hp = 4,  fire = 380 },
-          { id = "lula",  hp = 4,  fire = 380 },
-          { id = "trump", hp = 4,  fire = 380 },
+          { id = "kim",   hp = 10, fire = 240 },
+          { id = "xi",    hp = 3,  fire = 420 },
+          { id = "lula",  hp = 3,  fire = 420 },
+          { id = "trump", hp = 3,  fire = 420 },
       },
       intro = { "kame", "goal_final" } },
 }
@@ -620,7 +620,8 @@ local function build_map()
             elseif ch == "a" then
                 cards[#cards + 1] = { x = x + 8, y = GROUND - 46, got = false }
             elseif ch == "B" then
-                cards[#cards + 1] = { x = x + 9, y = GROUND - 46, got = false }
+                -- no alto do pulo por cima da barreira
+                cards[#cards + 1] = { x = x + 9, y = GROUND - 78, got = false }
             end
             tile = tile + 1
         end
@@ -791,8 +792,8 @@ end
 local function update_combat()
     -- refletir (todas as fases de combate)
     if pressed_reflect() and p.shieldCD == 0 then
-        p.shield = 14
-        p.shieldCD = 30
+        p.shield = 22
+        p.shieldCD = 20
     end
     -- kamehameha (so na batalha final)
     if P.kame and pressed_kame() and energy >= ENERGY_MAX and p.beam == 0 and not p.won then
@@ -826,10 +827,10 @@ local function update_combat()
         local remove = false
         if s.dir == 1 then
             s.x = s.x + P.shot_speed
-            if p.shield > 0 and s.x + 12 >= PLAYER_X - 30 and s.x - 12 <= sx1 then
+            if p.shield > 0 and s.x + 12 >= PLAYER_X - 40 and s.x - 12 <= sx1 then
                 s.dir = -1   -- refletido!
             elseif overlap(sx0, y0, sx1, y1, s.x - 10, s.y - 4, s.x + 10, s.y + 4) then
-                hurt(0.4)
+                hurt(0.3)
                 remove = true
             elseif s.x > 500 then
                 remove = true
@@ -1100,9 +1101,10 @@ local function draw_bosses(frame)
     end
 end
 
-local function bar(x, y, w, frac, fg)
-    ui.rectfill(x, y, x + w, y + 4, C(0x222034))
-    if frac > 0 then ui.rectfill(x, y, x + flr(w * frac), y + 4, fg) end
+local function bar(x, y, w, frac, fg, h)
+    h = h or 4
+    ui.rectfill(x, y, x + w, y + h, C(0x222034))
+    if frac > 0 then ui.rectfill(x, y, x + flr(w * frac), y + h, fg) end
 end
 
 local function draw_hud(frame)
@@ -1128,15 +1130,18 @@ local function draw_hud(frame)
 
     if P.combat then
         -- vida dos presidentes
+        -- nome em cima e barra embaixo, todas do mesmo tamanho
+        -- (a do Kim, o chefe mais forte, e um pouco maior)
         local multi = #bosses > 1
         for i, b in ipairs(bosses) do
-            local x = multi and (200 + ((i - 1) % 2) * 140) or 200
-            local y = 8 + flr((i - 1) / 2) * 12
-            local name = b.def.name
-            ui.print(name, x, y, b.dead and C(0x847e87) or C(0xffffff))
-            local bx = x + (#name + 1) * FONT_W
-            local bw = (multi and x + 134 or 466) - bx
-            bar(bx, y + 1, bw, b.hp / b.maxhp, C(0xac3232))
+            local x, y = 340, 6
+            if multi then
+                x = 190 + ((i - 1) % 2) * 150
+                y = 6 + flr((i - 1) / 2) * 20
+            end
+            local big = b.def == BOSS_DEFS.kim
+            ui.print(b.def.name, x, y, b.dead and C(0x847e87) or C(0xffffff))
+            bar(x, y + 9, big and 130 or 100, b.hp / b.maxhp, C(0xac3232), big and 5 or 4)
         end
     else
         -- progresso ate a chegada
