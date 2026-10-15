@@ -2,9 +2,9 @@ require "palette"
 require "sprites"
 
 -- ===================================================================
--- Trump's Run - corrida 2D pelos EUA
+-- Trump's Run - corrida 2D pelo mundo
 -- O personagem corre sozinho: CIMA/Z pula, BAIXO/X desliza.
--- Colete Green Cards e nao deixe o Trump te alcancar!
+-- Cada fase e um pais, com um presidente correndo atras de voce.
 -- ===================================================================
 
 local GROUND = 222      -- linha do chao (pes do personagem)
@@ -29,21 +29,223 @@ end
 local flr = math.floor
 
 -- ===================================================================
--- Mapa estatico dos EUA (de leste a oeste)
+-- Coletaveis
+-- ===================================================================
+local function draw_green_card(x, y)
+    x, y = flr(x), flr(y)
+    ui.rectfill(x - 7, y - 5, x + 7, y + 5, C(0x6abe30))
+    ui.rect(x - 7, y - 5, x + 7, y + 5, C(0x37946e))
+    ui.rectfill(x - 5, y - 3, x - 1, y + 2, C(0xcbdbfc))
+    ui.line(x + 1, y - 2, x + 5, y - 2, C(0xffffff))
+    ui.line(x + 1, y, x + 5, y, C(0xffffff))
+    ui.line(x + 1, y + 2, x + 4, y + 2, C(0x4b692f))
+end
+
+local function draw_bolsa_card(x, y)
+    -- cartao azul com faixas verde/amarela e a palavra BOLSA
+    x, y = flr(x), flr(y)
+    ui.rectfill(x - 18, y - 8, x + 18, y + 8, C(0x5b6ee1))
+    ui.rectfill(x - 18, y + 4, x + 18, y + 6, C(0x6abe30))
+    ui.rectfill(x - 18, y + 6, x + 18, y + 8, C(0xfbf236))
+    ui.rect(x - 18, y - 8, x + 18, y + 8, C(0x3f3f74))
+    ui.print("BOLSA", x - 14, y - 5, C(0xffffff))
+end
+
+-- ===================================================================
+-- Bandeiras
+-- ===================================================================
+local function draw_flag_usa(x, y)
+    ui.line(x, y, x, y + 30, C(0x847e87))
+    for r = 0, 6 do
+        local col = (r % 2 == 0) and C(0xac3232) or C(0xffffff)
+        ui.rectfill(x + 1, y + r * 2, x + 20, y + r * 2 + 1, col)
+    end
+    ui.rectfill(x + 1, y, x + 9, y + 7, C(0x3f3f74))
+    ui.print("*", x + 3, y + 1, C(0xffffff))
+end
+
+local function draw_flag_br(x, y)
+    ui.line(x, y, x, y + 30, C(0x847e87))
+    ui.rectfill(x + 1, y, x + 21, y + 13, C(0x37946e))
+    ui.trisfill(x + 3, y + 7, x + 19, y + 7, x + 11, y + 2, C(0xfbf236))
+    ui.trisfill(x + 3, y + 7, x + 19, y + 7, x + 11, y + 12, C(0xfbf236))
+    ui.circfill(x + 11, y + 7, 3, C(0x3f3f74))
+end
+
+-- ===================================================================
+-- Perseguidores (bem simples: retangulos)
+-- ===================================================================
+local function draw_trump(x, y)
+    -- terno, gravata, rosto e topete amarelo
+    ui.rectfill(x, y - 30, x + 16, y, C(0x3f3f74))
+    ui.rectfill(x + 7, y - 22, x + 9, y - 10, C(0xac3232))
+    ui.rectfill(x + 2, y - 40, x + 16, y - 30, C(0xd9a066))
+    ui.rectfill(x + 12, y - 37, x + 13, y - 36, C(0x000000))
+    ui.rectfill(x, y - 46, x + 14, y - 40, C(0xfbf236))
+    ui.trisfill(x + 10, y - 46, x + 21, y - 43, x + 10, y - 40, C(0xfbf236))
+end
+
+local function draw_lula(x, y)
+    -- camiseta vermelha, rosto, barba branca e chapeu
+    ui.rectfill(x, y - 30, x + 16, y, C(0xac3232))
+    ui.rectfill(x + 2, y - 42, x + 16, y - 30, C(0xeec39a))
+    ui.rectfill(x + 2, y - 35, x + 17, y - 28, C(0xffffff))
+    ui.rectfill(x + 12, y - 39, x + 13, y - 38, C(0x000000))
+    ui.rectfill(x - 2, y - 44, x + 20, y - 42, C(0x8a6f30))
+    ui.rectfill(x + 2, y - 50, x + 15, y - 44, C(0x8a6f30))
+    ui.rectfill(x + 2, y - 46, x + 15, y - 45, C(0x000000))
+end
+
+-- ===================================================================
+-- Pontos turisticos (desenhados no fundo com parallax)
+-- ===================================================================
+local g = GROUND
+
+local function lm_liberty(x)
+    ui.rectfill(x - 14, g - 40, x + 14, g, C(0x9badb7))
+    ui.rectfill(x - 10, g - 46, x + 10, g - 40, C(0x847e87))
+    ui.trisfill(x - 10, g - 46, x + 10, g - 46, x, g - 110, C(0x37946e))
+    ui.circfill(x, g - 112, 6, C(0x37946e))
+    ui.trisfill(x - 6, g - 116, x + 6, g - 116, x, g - 126, C(0x37946e))
+    ui.rectfill(x + 6, g - 138, x + 9, g - 104, C(0x37946e))
+    ui.circfill(x + 7, g - 142, 4, C(0xfbf236))
+end
+
+local function lm_washington(x)
+    ui.rectfill(x - 6, g - 130, x + 6, g, C(0xcbdbfc))
+    ui.trisfill(x - 6, g - 130, x + 6, g - 130, x, g - 145, C(0xcbdbfc))
+    ui.rectfill(x + 40, g - 40, x + 120, g, C(0xffffff))
+    ui.circfill(x + 80, g - 40, 22, C(0xffffff))
+    ui.rectfill(x + 78, g - 72, x + 82, g - 60, C(0xffffff))
+    for i = 0, 7 do
+        ui.line(x + 46 + i * 10, g - 34, x + 46 + i * 10, g - 2, C(0x9badb7))
+    end
+end
+
+local function lm_texas(x)
+    for k = 0, 1 do
+        local cxp = x + k * 90
+        ui.rectfill(cxp - 4, g - 60, cxp + 4, g, C(0x4b692f))
+        ui.rectfill(cxp - 16, g - 44, cxp - 4, g - 38, C(0x4b692f))
+        ui.rectfill(cxp - 16, g - 58, cxp - 10, g - 38, C(0x4b692f))
+        ui.rectfill(cxp + 4, g - 36, cxp + 14, g - 30, C(0x4b692f))
+        ui.rectfill(cxp + 10, g - 50, cxp + 16, g - 30, C(0x4b692f))
+    end
+    ui.line(x + 150, g, x + 170, g - 90, C(0x222034))
+    ui.line(x + 190, g, x + 170, g - 90, C(0x222034))
+    ui.line(x + 156, g - 30, x + 184, g - 30, C(0x222034))
+    ui.line(x + 162, g - 60, x + 178, g - 60, C(0x222034))
+end
+
+local function lm_vegas(x)
+    ui.rectfill(x - 20, g - 120, x + 20, g, C(0x76428a))
+    ui.rectfill(x + 30, g - 80, x + 80, g, C(0x3f3f74))
+    for yy = g - 112, g - 10, 12 do
+        for xx = x - 14, x + 10, 8 do
+            if flr((xx + yy) / 4) % 3 ~= 0 then
+                ui.rectfill(xx, yy, xx + 3, yy + 5, C(0xfbf236))
+            end
+        end
+    end
+    ui.rectfill(x + 34, g - 72, x + 76, g - 58, C(0xd77bba))
+    ui.print("CASINO", x + 37, g - 69, C(0xffffff))
+end
+
+local function palm(px)
+    ui.rectfill(px, g - 70, px + 3, g, C(0x8a6f30))
+    ui.circfill(px - 8, g - 70, 8, C(0x4b692f))
+    ui.circfill(px + 10, g - 70, 8, C(0x4b692f))
+    ui.circfill(px + 1, g - 76, 7, C(0x6abe30))
+end
+
+local function lm_hollywood(x)
+    ui.circfill(x + 60, g + 40, 100, C(0x8f563b))
+    ui.print("HOLLYWOOD", x + 32, g - 46, C(0xffffff))
+    palm(x - 40)
+    palm(x + 190)
+end
+
+local function lm_saopaulo(x)
+    -- MASP: caixa vermelha sobre pilares
+    ui.rectfill(x, g - 50, x + 6, g, C(0xac3232))
+    ui.rectfill(x + 94, g - 50, x + 100, g, C(0xac3232))
+    ui.rectfill(x - 4, g - 50, x + 104, g - 34, C(0x696a6a))
+    ui.rectfill(x - 4, g - 56, x + 104, g - 50, C(0xac3232))
+    ui.rectfill(x + 130, g - 140, x + 160, g, C(0x847e87))
+    ui.rectfill(x + 170, g - 110, x + 200, g, C(0x696a6a))
+end
+
+local function lm_rio(x)
+    -- Pao de Acucar e Cristo Redentor
+    ui.circfill(x + 20, g + 10, 60, C(0x4b692f))
+    ui.circfill(x + 150, g, 40, C(0x37946e))
+    ui.rectfill(x + 18, g - 76, x + 22, g - 48, C(0xffffff))
+    ui.rectfill(x + 6, g - 70, x + 34, g - 66, C(0xffffff))
+    ui.circfill(x + 20, g - 79, 3, C(0xffffff))
+    palm(x + 210)
+end
+
+local function lm_brasilia(x)
+    -- Congresso Nacional: duas torres e duas cupulas
+    ui.rectfill(x + 50, g - 110, x + 60, g - 30, C(0xcbdbfc))
+    ui.rectfill(x + 64, g - 110, x + 74, g - 30, C(0xcbdbfc))
+    ui.rectfill(x - 10, g - 30, x + 140, g, C(0xffffff))
+    ui.circfill(x + 20, g - 30, 14, C(0xffffff))
+    ui.rectfill(x + 6, g - 44, x + 34, g - 31, C(REGION_SKY or 0x5fcde4))
+    ui.circfill(x + 110, g - 30, 14, C(0xffffff))
+end
+
+local function lm_amazonia(x)
+    for k = 0, 4 do
+        local tx = x + k * 50
+        local th = 50 + (k * 23) % 30
+        ui.rectfill(tx - 3, g - th, tx + 3, g, C(0x663931))
+        ui.circfill(tx, g - th, 20, C(0x37946e))
+        ui.circfill(tx - 12, g - th + 10, 12, C(0x4b692f))
+        ui.circfill(tx + 12, g - th + 8, 12, C(0x6abe30))
+    end
+end
+
+-- ===================================================================
+-- Fases (paises). Mapa estatico de cada pais:
 --   .  vazio
 --   b  barreira (pular)
 --   h  placa suspensa (deslizar)
---   c  green card no chao
---   a  green card no alto (pular para pegar)
---   B  barreira com green card em cima
+--   c  cartao no chao
+--   a  cartao no alto (pular para pegar)
+--   B  barreira com cartao em cima
 -- ===================================================================
-local REGIONS = {
-    { name = "NEW YORK",      sky = 0x639bff, map = "......c.c.c....b....c.c.c...h....b..a." },
-    { name = "WASHINGTON DC", sky = 0x5fcde4, map = "..h...ccc...b...h...B....a.a...h..b.." },
-    { name = "TEXAS",         sky = 0xd9a066, map = "..b..b...ccc..h..h...B...b..a..h..cc." },
-    { name = "LAS VEGAS",     sky = 0x222034, map = ".h..b..ccc..h..B..h...b..b..a.a..h..." },
-    { name = "HOLLYWOOD",     sky = 0xdf7126, map = "..b..h..ccc..B..h..b..h...b..ccc......" },
+local PHASES = {
+    {
+        country = "EUA", chaser = "TRUMP", card = "GREEN CARDS", tag = "USA",
+        finish = "VOCE CHEGOU NA CALIFORNIA!",
+        draw_card = draw_green_card, card_w = 8, card_h = 7,
+        draw_chaser = draw_trump, draw_flag = draw_flag_usa,
+        regions = {
+            { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
+            { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "..h...ccc...b...h...B....a.a...h..b.." },
+            { name = "TEXAS",         sky = 0xd9a066, lm = lm_texas,      map = "..b..b...ccc..h..h...B...b..a..h..cc." },
+            { name = "LAS VEGAS",     sky = 0x222034, lm = lm_vegas,      map = ".h..b..ccc..h..B..h...b..b..a.a..h...", night = true },
+            { name = "HOLLYWOOD",     sky = 0xdf7126, lm = lm_hollywood,  map = "..b..h..ccc..B..h..b..h...b..ccc......" },
+        },
+    },
+    {
+        country = "BRASIL", chaser = "LULA", card = "BOLSAS", tag = "BR",
+        finish = "VOCE ATRAVESSOU O BRASIL!",
+        draw_card = draw_bolsa_card, card_w = 19, card_h = 9,
+        draw_chaser = draw_lula, draw_flag = draw_flag_br,
+        regions = {
+            { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
+            { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "..b..h..ccc..b..b..a.a..h..h..B...cc.." },
+            { name = "BRASILIA",       sky = 0x5fcde4, lm = lm_brasilia, map = ".h..b..ccc..B..h..b..h..a..b..b..ccc." },
+            { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "..h..b..ccc..h..B..b..h..a.a..b..ccc......", forest = true },
+        },
+    },
 }
+
+local phase = 1
+local P = PHASES[1]
+local REGIONS = P.regions
 
 local obstacles = {}
 local cards = {}
@@ -52,7 +254,7 @@ local FINISH = 0
 local function build_map()
     obstacles, cards = {}, {}
     local tile = 0
-    for r, reg in ipairs(REGIONS) do
+    for _, reg in ipairs(REGIONS) do
         reg.start = tile * TILE
         for i = 1, #reg.map do
             local ch = reg.map:sub(i, i)
@@ -86,22 +288,30 @@ end
 -- ===================================================================
 -- Estado do jogo
 -- ===================================================================
-local state = "title"
+local state = "title"   -- title | run | caught | clear | win
 local p = {}
-local trump = {}
+local chaser = {}
 local collected = 0
+local scores = {}       -- cartoes coletados em cada fase
 local endT = 0
+local runT = 0
 
-local function reset()
+local function start_phase(n)
+    phase = n
+    P = PHASES[n]
+    REGIONS = P.regions
     build_map()
     p = { x = 0, y = GROUND, vy = 0, onground = true, slide = 0,
           fastfall = false, stumble = 0, inv = 0 }
-    trump = { gap = 1.0, sx = 0 }
+    chaser = { gap = 1.0, sx = PLAYER_X - 140 }
     collected = 0
     endT = 0
+    runT = 0
+    state = "run"
 end
 
-reset()
+start_phase(1)
+state = "title"
 
 local function player_box()
     if p.slide > 0 then
@@ -118,7 +328,8 @@ end
 -- Logica
 -- ===================================================================
 local function update_run()
-    local spd = 3 + (p.x / FINISH) * 1.5
+    runT = runT + 1
+    local spd = 3 + (p.x / FINISH) * 1.5 + (phase - 1) * 0.4
     if p.stumble > 0 then
         spd = spd * 0.6
         p.stumble = p.stumble - 1
@@ -172,8 +383,8 @@ local function update_run()
                 if p.inv == 0 then
                     p.inv = 60
                     p.stumble = 40
-                    trump.gap = trump.gap - 0.55
-                    if trump.gap <= 0 then
+                    chaser.gap = chaser.gap - 0.55
+                    if chaser.gap <= 0 then
                         state = "caught"
                         endT = 0
                     end
@@ -182,19 +393,20 @@ local function update_run()
         end
     end
 
-    -- coleta de green cards
+    -- coleta de cartoes
     for _, c in ipairs(cards) do
-        if not c.got and overlap(x0, y0, x1, y1, c.x - 8, c.y - 7, c.x + 8, c.y + 7) then
+        if not c.got and overlap(x0, y0, x1, y1, c.x - P.card_w, c.y - P.card_h, c.x + P.card_w, c.y + P.card_h) then
             c.got = true
             collected = collected + 1
         end
     end
 
-    -- Trump recupera a distancia aos poucos
-    trump.gap = math.min(1, trump.gap + 0.0015)
+    -- o presidente recupera a distancia aos poucos
+    chaser.gap = math.min(1, chaser.gap + 0.0015)
 
     if p.x >= FINISH then
-        state = "win"
+        scores[phase] = { got = collected, total = #cards }
+        state = (phase < #PHASES) and "clear" or "win"
         endT = 0
     end
 end
@@ -204,105 +416,20 @@ end
 -- ===================================================================
 local function cx(s) return flr(240 - #s * FONT_W / 2) end
 
-local function draw_card(x, y)
-    x, y = flr(x), flr(y)
-    ui.rectfill(x - 7, y - 5, x + 7, y + 5, C(0x6abe30))
-    ui.rect(x - 7, y - 5, x + 7, y + 5, C(0x37946e))
-    ui.rectfill(x - 5, y - 3, x - 1, y + 2, C(0xcbdbfc))
-    ui.line(x + 1, y - 2, x + 5, y - 2, C(0xffffff))
-    ui.line(x + 1, y, x + 5, y, C(0xffffff))
-    ui.line(x + 1, y + 2, x + 4, y + 2, C(0x4b692f))
-end
-
-local function draw_flag(x, y)
-    ui.line(x, y, x, y + 30, C(0x847e87))
-    for r = 0, 6 do
-        local col = (r % 2 == 0) and C(0xac3232) or C(0xffffff)
-        ui.rectfill(x + 1, y + r * 2, x + 20, y + r * 2 + 1, col)
-    end
-    ui.rectfill(x + 1, y, x + 9, y + 7, C(0x3f3f74))
-    ui.print("*", x + 3, y + 1, C(0xffffff))
-end
-
-local function draw_landmark(r, x)
-    local g = GROUND
-    if r == 1 then
-        -- Estatua da Liberdade
-        ui.rectfill(x - 14, g - 40, x + 14, g, C(0x9badb7))
-        ui.rectfill(x - 10, g - 46, x + 10, g - 40, C(0x847e87))
-        ui.trisfill(x - 10, g - 46, x + 10, g - 46, x, g - 110, C(0x37946e))
-        ui.circfill(x, g - 112, 6, C(0x37946e))
-        ui.trisfill(x - 6, g - 116, x + 6, g - 116, x, g - 126, C(0x37946e))
-        ui.rectfill(x + 6, g - 138, x + 9, g - 104, C(0x37946e))
-        ui.circfill(x + 7, g - 142, 4, C(0xfbf236))
-    elseif r == 2 then
-        -- Monumento de Washington e Capitolio
-        ui.rectfill(x - 6, g - 130, x + 6, g, C(0xcbdbfc))
-        ui.trisfill(x - 6, g - 130, x + 6, g - 130, x, g - 145, C(0xcbdbfc))
-        ui.rectfill(x + 40, g - 40, x + 120, g, C(0xffffff))
-        ui.circfill(x + 80, g - 40, 22, C(0xffffff))
-        ui.rectfill(x + 78, g - 72, x + 82, g - 60, C(0xffffff))
-        for i = 0, 7 do
-            ui.line(x + 46 + i * 10, g - 34, x + 46 + i * 10, g - 2, C(0x9badb7))
-        end
-    elseif r == 3 then
-        -- Cactos e torre de petroleo
-        for k = 0, 1 do
-            local cxp = x + k * 90
-            ui.rectfill(cxp - 4, g - 60, cxp + 4, g, C(0x4b692f))
-            ui.rectfill(cxp - 16, g - 44, cxp - 4, g - 38, C(0x4b692f))
-            ui.rectfill(cxp - 16, g - 58, cxp - 10, g - 38, C(0x4b692f))
-            ui.rectfill(cxp + 4, g - 36, cxp + 14, g - 30, C(0x4b692f))
-            ui.rectfill(cxp + 10, g - 50, cxp + 16, g - 30, C(0x4b692f))
-        end
-        ui.line(x + 150, g, x + 170, g - 90, C(0x222034))
-        ui.line(x + 190, g, x + 170, g - 90, C(0x222034))
-        ui.line(x + 156, g - 30, x + 184, g - 30, C(0x222034))
-        ui.line(x + 162, g - 60, x + 178, g - 60, C(0x222034))
-    elseif r == 4 then
-        -- Cassinos de Las Vegas
-        ui.rectfill(x - 20, g - 120, x + 20, g, C(0x76428a))
-        ui.rectfill(x + 30, g - 80, x + 80, g, C(0x3f3f74))
-        for yy = g - 112, g - 10, 12 do
-            for xx = x - 14, x + 10, 8 do
-                if flr((xx + yy) / 4) % 3 ~= 0 then
-                    ui.rectfill(xx, yy, xx + 3, yy + 5, C(0xfbf236))
-                end
-            end
-        end
-        ui.rectfill(x + 34, g - 72, x + 76, g - 58, C(0xd77bba))
-        ui.print("CASINO", x + 37, g - 69, C(0xffffff))
-    else
-        -- Colina com letreiro de Hollywood e palmeiras
-        ui.circfill(x + 60, g + 40, 100, C(0x8f563b))
-        ui.print("HOLLYWOOD", x + 32, g - 46, C(0xffffff))
-        for k = 0, 1 do
-            local px = x - 40 + k * 230
-            ui.rectfill(px, g - 70, px + 3, g, C(0x8a6f30))
-            ui.circfill(px - 8, g - 70, 8, C(0x4b692f))
-            ui.circfill(px + 10, g - 70, 8, C(0x4b692f))
-            ui.circfill(px + 1, g - 76, 7, C(0x6abe30))
-        end
-    end
-end
-
 local function draw_world(cam)
-    local reg = region_at(cam + PLAYER_X)
-    local sky = REGIONS[reg].sky
-    ui.cls(C(sky))
+    local reg = REGIONS[region_at(cam + PLAYER_X)]
+    REGION_SKY = reg.sky
+    ui.cls(C(reg.sky))
 
     -- sol ou lua
-    if reg == 4 then
+    if reg.night then
         ui.circfill(420, 40, 14, C(0xcbdbfc))
         for i = 0, 25 do
             ui.rectfill((i * 97) % 480, (i * 53) % 150, (i * 97) % 480, (i * 53) % 150, C(0xffffff))
         end
     else
         ui.circfill(420, 40, 18, C(0xfbf236))
-    end
-
-    -- nuvens (parallax 0.2)
-    if reg ~= 4 then
+        -- nuvens (parallax 0.2)
         local off = flr(cam * 0.2) % 600
         for i = 0, 3 do
             local x = i * 160 - off
@@ -314,25 +441,29 @@ local function draw_world(cam)
         end
     end
 
-    -- predios ao fundo (parallax 0.3)
+    -- predios ao fundo (parallax 0.3); na floresta, morros verdes
     local bcam = cam * 0.3
     local k0 = flr(bcam / 40)
-    local bcol = (reg == 4) and C(0x3f3f74) or C(0x9badb7)
     for k = k0, k0 + 13 do
         local h = 30 + (k * 37) % 60
         local x = flr(k * 40 - bcam)
-        ui.rectfill(x, GROUND - h, x + 34, GROUND, bcol)
-        for wy = GROUND - h + 6, GROUND - 10, 10 do
-            ui.rectfill(x + 6, wy, x + 10, wy + 4, C(0xcbdbfc))
-            ui.rectfill(x + 22, wy, x + 26, wy + 4, C(0xcbdbfc))
+        if reg.forest then
+            ui.circfill(x + 17, GROUND, h, C(0x4b692f))
+        else
+            local bcol = reg.night and C(0x3f3f74) or C(0x9badb7)
+            ui.rectfill(x, GROUND - h, x + 34, GROUND, bcol)
+            for wy = GROUND - h + 6, GROUND - 10, 10 do
+                ui.rectfill(x + 6, wy, x + 10, wy + 4, C(0xcbdbfc))
+                ui.rectfill(x + 22, wy, x + 26, wy + 4, C(0xcbdbfc))
+            end
         end
     end
 
-    -- pontos turisticos de cada estado (parallax 0.6)
-    for r, rg in ipairs(REGIONS) do
+    -- pontos turisticos de cada regiao (parallax 0.6)
+    for _, rg in ipairs(REGIONS) do
         for _, off in ipairs({ 220, 760 }) do
             local x = flr(rg.start * 0.6 + off - cam * 0.6)
-            if x > -260 and x < 740 then draw_landmark(r, x) end
+            if x > -260 and x < 740 then rg.lm(x) end
         end
     end
 
@@ -348,11 +479,10 @@ local function draw_world(cam)
     -- bandeirinhas na calcada
     local f0 = flr(cam / 400)
     for k = f0, f0 + 2 do
-        local x = flr(k * 400 + 300 - cam)
-        draw_flag(x, GROUND - 31)
+        P.draw_flag(flr(k * 400 + 300 - cam), GROUND - 31)
     end
 
-    -- placas com o nome do estado
+    -- placas com o nome da regiao
     for _, rg in ipairs(REGIONS) do
         local x = flr(rg.start + 40 - cam)
         if x > -150 and x < 500 then
@@ -396,26 +526,26 @@ local function draw_world(cam)
                 ui.rectfill(x + 9, 0, x + 12, GROUND - 60, C(0x696a6a))
                 ui.rectfill(x - 2, GROUND - 60, x + 24, GROUND - 17, C(0x306082))
                 ui.rect(x - 2, GROUND - 60, x + 24, GROUND - 17, C(0xffffff))
-                ui.print("USA", x + 2, GROUND - 46, C(0xffffff))
+                ui.print(P.tag, x + 2, GROUND - 46, C(0xffffff))
                 ui.rectfill(x + 2, GROUND - 32, x + 20, GROUND - 30, C(0xac3232))
             end
         end
     end
 
-    -- green cards
+    -- cartoes coletaveis
     for i, c in ipairs(cards) do
         if not c.got then
             local x = c.x - cam
-            if x > -20 and x < 500 then
+            if x > -30 and x < 510 then
                 local bob = math.sin((Frame_now + i * 7) * 0.12) * 2
-                draw_card(x, c.y + bob)
+                P.draw_card(x, c.y + bob)
             end
         end
     end
 end
 
 local function draw_player(frame)
-    if p.inv > 0 and flr((p.inv) / 4) % 2 == 0 then return end
+    if p.inv > 0 and flr(p.inv / 4) % 2 == 0 then return end
     local x = PLAYER_X
     local y = flr(p.y)
     if p.slide > 0 then
@@ -423,7 +553,7 @@ local function draw_player(frame)
         ui.rectfill(x + 16, y - 12, x + 24, y - 4, C(0xeec39a))
         ui.rectfill(x + 16, y - 13, x + 24, y - 10, C(0x663931))
     else
-        local leg = (p.onground and flr((frame) / 6) % 2 == 0) and 2 or 0
+        local leg = (p.onground and flr(frame / 6) % 2 == 0) and 2 or 0
         ui.rectfill(x + 1, y - 8, x + 4, y - leg, C(0x306082))
         ui.rectfill(x + 7, y - 8, x + 10, y - 2 + leg, C(0x306082))
         ui.rectfill(x, y - 20, x + 11, y - 8, C(0x99e550))
@@ -433,27 +563,18 @@ local function draw_player(frame)
     end
 end
 
-local function draw_trump(frame)
-    local target = PLAYER_X - 28 - trump.gap * 110
+local function draw_chaser(frame)
+    local target = PLAYER_X - 28 - chaser.gap * 110
     if state == "caught" then target = PLAYER_X - 12 end
-    trump.sx = trump.sx + (target - trump.sx) * 0.1
-    local x = flr(trump.sx)
+    chaser.sx = chaser.sx + (target - chaser.sx) * 0.1
     local y = GROUND - flr(math.abs(math.sin(frame * 0.3)) * 3)
-    -- corpo: retangulo de terno
-    ui.rectfill(x, y - 30, x + 16, y, C(0x3f3f74))
-    ui.rectfill(x + 7, y - 22, x + 9, y - 10, C(0xac3232))
-    -- rosto
-    ui.rectfill(x + 2, y - 40, x + 16, y - 30, C(0xd9a066))
-    ui.rectfill(x + 12, y - 37, x + 13, y - 36, C(0x000000))
-    -- topete amarelo
-    ui.rectfill(x, y - 46, x + 14, y - 40, C(0xfbf236))
-    ui.trisfill(x + 10, y - 46, x + 21, y - 43, x + 10, y - 40, C(0xfbf236))
+    P.draw_chaser(flr(chaser.sx), y)
 end
 
 local function draw_hud()
-    -- green cards
-    draw_card(16, 14)
-    ui.print("x " .. collected, 28, 10, C(0xffffff))
+    -- cartoes
+    P.draw_card(24, 16)
+    ui.print("x " .. collected, 48, 12, C(0xffffff))
 
     -- barra de progresso
     local bx0, bx1 = 140, 460
@@ -462,19 +583,26 @@ local function draw_hud()
     ui.rectfill(bx0, 10, bx0 + flr((bx1 - bx0) * prog), 13, C(0x6abe30))
     ui.rectfill(bx1 - 2, 4, bx1, 16, C(0xffffff))
 
-    -- distancia do Trump
-    ui.print("TRUMP", 140, 20, C(0xffffff))
-    local w = flr(80 * trump.gap)
-    ui.rectfill(178, 21, 258, 25, C(0x222034))
-    local col = trump.gap < 0.5 and C(0xac3232) or C(0xfbf236)
-    ui.rectfill(178, 21, 178 + w, 25, col)
+    -- distancia do presidente
+    ui.print(P.chaser, 140, 20, C(0xffffff))
+    local bx = 140 + (#P.chaser + 1) * FONT_W
+    ui.rectfill(bx, 21, bx + 80, 25, C(0x222034))
+    local col = chaser.gap < 0.5 and C(0xac3232) or C(0xfbf236)
+    ui.rectfill(bx, 21, bx + flr(80 * chaser.gap), 25, col)
+
+    -- aviso de inicio de fase
+    if runT < 120 then
+        local s = "FASE " .. phase .. ": " .. P.country
+        ui.rectfill(cx(s) - 8, 50, 480 - cx(s) + 8, 66, C(0x222034))
+        ui.print(s, cx(s), 55, C(0xfbf236))
+    end
 end
 
 local function panel(lines)
-    ui.rectfill(90, 60, 390, 190, C(0x222034))
-    ui.rect(90, 60, 390, 190, C(0xffffff))
+    ui.rectfill(90, 50, 390, 200, C(0x222034))
+    ui.rect(90, 50, 390, 200, C(0xffffff))
     for i, ln in ipairs(lines) do
-        ui.print(ln[1], cx(ln[1]), 72 + (i - 1) * 16, C(ln[2]))
+        ui.print(ln[1], cx(ln[1]), 62 + (i - 1) * 16, C(ln[2]))
     end
 end
 
@@ -496,57 +624,81 @@ function loop(frame)
 
     if state == "title" then
         if ui.btnp(BTN_Z) or ui.btnp(UP) then
-            reset()
-            state = "run"
+            scores = {}
+            start_phase(1)
         end
     elseif state == "run" then
         update_run()
     else
         endT = endT + 1
         if endT > 30 and ui.btnp(BTN_Z) then
-            reset()
-            state = "run"
+            if state == "clear" then
+                start_phase(phase + 1)
+            elseif state == "win" then
+                scores = {}
+                start_phase(1)
+            else
+                start_phase(phase)   -- pego: tenta a mesma fase de novo
+            end
         end
     end
 
     local cam = p.x - PLAYER_X
     draw_world(cam)
     if state ~= "title" then
-        draw_trump(frame)
+        draw_chaser(frame)
         draw_player(frame)
         draw_hud()
-    else
-        trump.sx = PLAYER_X - 140
     end
 
+    local blink = flr(frame / 30) % 2 == 0
     if state == "title" then
-        local blink = flr((frame) / 30) % 2 == 0
         panel({
             { "TRUMP'S RUN", 0xfbf236 },
-            { "CORRA PELOS EUA E FUJA DO TRUMP!", 0xffffff },
+            { "FASE 1: EUA - FUJA DO TRUMP!", 0xffffff },
+            { "FASE 2: BRASIL - FUJA DO LULA!", 0xffffff },
             { "", 0xffffff },
             { "CIMA / Z : PULAR", 0xcbdbfc },
             { "BAIXO / X : DESLIZAR", 0xcbdbfc },
-            { "COLETE OS GREEN CARDS", 0x6abe30 },
+            { "COLETE OS CARTOES DE CADA PAIS", 0x6abe30 },
+            { "", 0xffffff },
             { blink and "APERTE Z PARA COMECAR" or "", 0xffffff },
         })
-    elseif state == "win" then
+    elseif state == "clear" then
+        local nxt = PHASES[phase + 1]
         panel({
-            { "VOCE CHEGOU NA CALIFORNIA!", 0x6abe30 },
+            { P.finish, 0x6abe30 },
             { "", 0xffffff },
-            { "GREEN CARDS: " .. collected .. " / " .. #cards, 0xfbf236 },
+            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
             { "PONTUACAO: " .. collected * 100, 0xffffff },
             { "", 0xffffff },
-            { "APERTE Z PARA JOGAR DE NOVO", 0xcbdbfc },
+            { "PROXIMA FASE: " .. nxt.country, 0xffffff },
+            { "CUIDADO COM O " .. nxt.chaser .. "!", 0xac3232 },
+            { "", 0xffffff },
+            { blink and "APERTE Z PARA CONTINUAR" or "", 0xcbdbfc },
         })
+    elseif state == "win" then
+        local lines = { { "VOCE ESCAPOU DE TODOS!", 0x6abe30 }, { "", 0xffffff } }
+        local total = 0
+        for i, ph in ipairs(PHASES) do
+            local s = scores[i]
+            if s then
+                total = total + s.got
+                lines[#lines + 1] = { ph.country .. " - " .. ph.card .. ": " .. s.got .. " / " .. s.total, 0xfbf236 }
+            end
+        end
+        lines[#lines + 1] = { "PONTUACAO TOTAL: " .. total * 100, 0xffffff }
+        lines[#lines + 1] = { "", 0xffffff }
+        lines[#lines + 1] = { blink and "APERTE Z PARA JOGAR DE NOVO" or "", 0xcbdbfc }
+        panel(lines)
     elseif state == "caught" and endT > 40 then
         panel({
-            { "O TRUMP TE PEGOU!", 0xac3232 },
+            { "O " .. P.chaser .. " TE PEGOU!", 0xac3232 },
             { "", 0xffffff },
-            { "ESTADO: " .. REGIONS[region_at(p.x)].name, 0xffffff },
-            { "GREEN CARDS: " .. collected .. " / " .. #cards, 0xfbf236 },
+            { "LOCAL: " .. REGIONS[region_at(p.x)].name, 0xffffff },
+            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
             { "", 0xffffff },
-            { "APERTE Z PARA TENTAR DE NOVO", 0xcbdbfc },
+            { blink and "APERTE Z PARA TENTAR DE NOVO" or "", 0xcbdbfc },
         })
     end
 end
