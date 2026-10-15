@@ -488,10 +488,12 @@ end
 
 -- ===================================================================
 -- Botoes do controle (Y esquerda, X cima, A direita, B baixo)
--- No Lupi: A = BTN_X, B = BTN_Z, X = BTN_Q, Y = BTN_E
--- Teclado: A = J, B = K, X = L, Y = M
+-- Mapeamento conferido no controle SNES da PlayGames (tela TESTAR CONTROLE):
+--   A = BTN_G, B = BTN_Z, X = BTN_X, Y = BTN_F, L = BTN_Q, R = BTN_E
+-- Teclado: A = H, B = K, X = J, Y = G
 -- ===================================================================
-local PAD_A, PAD_B, PAD_X, PAD_Y = BTN_X, BTN_Z, BTN_Q, BTN_E
+local PAD_A, PAD_B, PAD_X, PAD_Y = BTN_G, BTN_Z, BTN_X, BTN_F
+local PAD_L, PAD_R = BTN_Q, BTN_E
 
 local function bp(b) return b ~= nil and ui.btnp(b) end
 
@@ -1502,7 +1504,7 @@ local function held(b) return b ~= nil and ui.btn(b) end
 
 local function update_padtest()
     local any = false
-    for _, b in ipairs({ LEFT, RIGHT, UP, DOWN, PAD_A, PAD_B, PAD_X, PAD_Y, BTN_F, BTN_G }) do
+    for _, b in ipairs({ LEFT, RIGHT, UP, DOWN, PAD_A, PAD_B, PAD_X, PAD_Y, PAD_L, PAD_R }) do
         if held(b) then any = true end
     end
     pad_idle = any and 0 or pad_idle + 1
@@ -1519,9 +1521,9 @@ local function draw_padtest(frame)
     ui.print(t, cx(t), 32, C(0xffffff))
 
     -- ombros L e R
-    ui.rectfill(100, 50, 170, 62, held(BTN_F) and on or C(0x847e87))
+    ui.rectfill(100, 50, 170, 62, held(PAD_L) and on or C(0x847e87))
     ui.print("L", 132, 53, C(0x000000))
-    ui.rectfill(310, 50, 380, 62, held(BTN_G) and on or C(0x847e87))
+    ui.rectfill(310, 50, 380, 62, held(PAD_R) and on or C(0x847e87))
     ui.print("R", 342, 53, C(0x000000))
 
     -- corpo do controle estilo SNES
@@ -1556,7 +1558,7 @@ local function draw_padtest(frame)
         { "B /", "DESLIZAR / VOLTAR", PAD_B, DOWN, "down" },
         { "Y /", "REFLETIR", PAD_Y, LEFT, "left" },
         { "A /", "KAMEHAMEHA / CONFIRMAR", PAD_A, RIGHT, "right" },
-        { "L / R", "SEM USO", BTN_F, BTN_G },
+        { "L / R", "SEM USO", PAD_L, PAD_R },
     }
     for i, r in ipairs(rows) do
         local y = 160 + (i - 1) * 13
@@ -1566,7 +1568,7 @@ local function draw_padtest(frame)
         if r[5] then draw_arrow(132, y, r[5], col) end
         ui.print(r[2], 170, y, col)
     end
-    t = "TECLADO: W A S D = DIRECIONAL   J=A  K=B  L=X  M=Y"
+    t = "TECLADO: W A S D = DIRECIONAL   H=A  K=B  J=X  G=Y"
     ui.print(t, cx(t), 228, C(0x847e87))
 
     local left = math.max(0, 3 - flr(pad_idle / 60))
