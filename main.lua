@@ -270,10 +270,12 @@ end
 
 local function lm_xangai(x)
     -- Torre Oriental Pearl e arranha-ceus
-    ui.rectfill(x - 2, g - 150, x + 2, g, C(0x9badb7))
-    ui.circfill(x, g - 40, 14, C(0xd77bba))
-    ui.circfill(x, g - 100, 10, C(0xd77bba))
-    ui.circfill(x, g - 130, 5, C(0xd77bba))
+    ui.rectfill(x - 3, g - 150, x + 3, g, C(0x3f3f74))
+    ui.circfill(x, g - 40, 15, C(0x222034))
+    ui.circfill(x, g - 40, 13, C(0xd95763))
+    ui.circfill(x, g - 100, 11, C(0x222034))
+    ui.circfill(x, g - 100, 9, C(0xd95763))
+    ui.circfill(x, g - 130, 5, C(0xd95763))
     ui.rectfill(x + 50, g - 140, x + 74, g, C(0x5b6ee1))
     ui.trisfill(x + 50, g - 140, x + 74, g - 140, x + 74, g - 160, C(0x5b6ee1))
     ui.rectfill(x + 90, g - 110, x + 110, g, C(0x847e87))
@@ -470,9 +472,21 @@ local function draw_beam(x0, x1, cy, frame)
     ui.circfill(x1, cy, r - 1, C(0xffffff))
 end
 
+-- triangulo de seta dentro de uma caixa 8x8 (dir: up, down, left, right)
+local function draw_arrow(x, y, dir, col)
+    if dir == "up" then
+        ui.trisfill(x, y + 7, x + 8, y + 7, x + 4, y, col)
+    elseif dir == "down" then
+        ui.trisfill(x, y, x + 8, y, x + 4, y + 7, col)
+    elseif dir == "left" then
+        ui.trisfill(x + 7, y, x + 7, y + 8, x, y + 4, col)
+    else
+        ui.trisfill(x, y, x, y + 8, x + 7, y + 4, col)
+    end
+end
+
 -- ===================================================================
--- Fases. Mapa estatico de cada fase, que se repete em loop
--- ate o chefe ser derrotado:
+-- Fases. Mapa estatico de cada pais:
 --   .  vazio
 --   b  barreira (pular)
 --   h  placa suspensa (deslizar)
@@ -480,12 +494,16 @@ end
 --   a  cartao no alto (pular para pegar)
 --   B  barreira com cartao em cima
 -- Cada regiao comeca com 4 espacos vazios (para a placa com o nome).
+--
+-- As 3 primeiras fases sao so corrida ate a chegada (sem combate).
+-- A batalha final (combat = true) acontece na Coreia do Norte: o mapa
+-- se repete em loop ate todos os presidentes serem derrotados.
 -- ===================================================================
 local PHASES = {
     {
         country = "EUA", card = "GREEN CARDS", tag = "USA",
-        draw_card = draw_green_card, bosses = { "trump" }, hp = 6, fire = 150,
-        speed = 3.0, shot_speed = 3.0,
+        draw_card = draw_green_card, speed = 3.0,
+        bosses = { { id = "trump" } },
         regions = {
             { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
             { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "....h.ccc...b...h...B....a.a...h..b.." },
@@ -496,8 +514,8 @@ local PHASES = {
     },
     {
         country = "BRASIL", card = "BOLSAS", tag = "BR",
-        draw_card = draw_bolsa_card, bosses = { "lula" }, hp = 7, fire = 140,
-        speed = 3.25, shot_speed = 3.2,
+        draw_card = draw_bolsa_card, speed = 3.3,
+        bosses = { { id = "lula" } },
         regions = {
             { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
             { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "....b..h.ccc..b..b..a.a..h..h..B...cc.." },
@@ -507,34 +525,29 @@ local PHASES = {
     },
     {
         country = "CHINA", card = "SOCIAL CREDIT", tag = "CN",
-        draw_card = draw_credit_card, bosses = { "xi" }, hp = 8, fire = 130,
-        speed = 3.5, shot_speed = 3.4,
+        draw_card = draw_credit_card, speed = 3.6,
+        bosses = { { id = "xi" } },
         regions = {
             { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,   map = "......c.c.c...h..b..ccc..B..h..b..a.a..h.." },
             { name = "GRANDE MURALHA", sky = 0x639bff, lm = lm_muralha,  map = "....b..b..ccc..h..h..B..b..a..h..b..cc." },
-            { name = "XANGAI",         sky = 0x9badb7, lm = lm_xangai,   map = "....h..b.ccc..h..B..b..h..a.a..b..h..ccc." },
+            { name = "XANGAI",         sky = 0x5fcde4, lm = lm_xangai,   map = "....h..b.ccc..h..B..b..h..a.a..b..h..ccc." },
             { name = "HONG KONG",      sky = 0x222034, lm = lm_hongkong, map = "....b..h..ccc..B..h..b..b..a..h..b..ccc......", night = true },
         },
     },
     {
-        country = "COREIA DO NORTE", card = "VISTOS", tag = "NK",
-        draw_card = draw_visa_card, bosses = { "kim" }, hp = 9, fire = 120,
-        speed = 3.6, shot_speed = 3.6,
-        regions = {
-            { name = "PYONGYANG",            sky = 0x9badb7, lm = lm_pyongyang, map = "......c.c.c...h..b..ccc..B..h..a.a..b..h.." },
-            { name = "ZONA DESMILITARIZADA", sky = 0xcbdbfc, lm = lm_dmz,       map = "....b..b..ccc..h..B..b..h..a..b..cc.." },
-            { name = "BASE DE MISSEIS",      sky = 0xdf7126, lm = lm_misseis,   map = "....h..b..ccc..B..h..b..a.a..h..b..ccc......" },
+        country = "COREIA DO NORTE", card = "VISTOS", tag = "NK", combat = true,
+        draw_card = draw_visa_card, speed = 3.4, shot_speed = 3.4,
+        -- Kim e o chefe mais forte: mais vida e atira mais vezes
+        bosses = {
+            { id = "kim",   hp = 12, fire = 200 },
+            { id = "xi",    hp = 4,  fire = 380 },
+            { id = "lula",  hp = 4,  fire = 380 },
+            { id = "trump", hp = 4,  fire = 380 },
         },
-    },
-    {
-        country = "MUNDO", card = "CARTOES", tag = "!!", final = true,
-        draw_card = draw_green_card, bosses = { "trump", "lula", "xi", "kim" }, hp = 5, fire = 300,
-        speed = 3.6, shot_speed = 3.4,
         regions = {
-            { name = "NEW YORK",       sky = 0x639bff, lm = lm_liberty,   card = draw_green_card,  map = "......c.c.c...b...h...ccc...B...a..." },
-            { name = "RIO DE JANEIRO", sky = 0x5fcde4, lm = lm_rio,       card = draw_bolsa_card,  map = "....h...b..ccc...B...h...a.a...b..." },
-            { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,    card = draw_credit_card, map = "....b...h..ccc...B...b...a...h..cc.." },
-            { name = "PYONGYANG",      sky = 0xdf7126, lm = lm_pyongyang, card = draw_visa_card,   map = "....h...b...ccc...B...h...a.a...b......" },
+            { name = "PYONGYANG",            sky = 0x9badb7, lm = lm_pyongyang, map = "......c.c.c...h...b..ccc...B...h..a.a...b...h.." },
+            { name = "ZONA DESMILITARIZADA", sky = 0xcbdbfc, lm = lm_dmz,       map = "....b...b..ccc...h...B...b...h..a...b..cc.." },
+            { name = "BASE DE MISSEIS",      sky = 0xdf7126, lm = lm_misseis,   map = "....h...b..ccc...B...h...b..a.a...h...b..ccc......" },
         },
     },
 }
@@ -547,14 +560,15 @@ local REGIONS = P.regions
 
 local obstacles = {}
 local cards = {}
-local LOOP = 1          -- comprimento do mapa (depois ele repete)
+local LOOP = 1          -- comprimento do mapa
+local FINISH = 1        -- linha de chegada (fases sem combate)
+local LOOPING = false   -- o mapa se repete (batalha final e telas de menu)
 
 local function build_map()
     obstacles, cards = {}, {}
     local tile = 0
     for _, reg in ipairs(REGIONS) do
         reg.start = tile * TILE
-        local draw = reg.card or P.draw_card
         for i = 1, #reg.map do
             local ch = reg.map:sub(i, i)
             local x = tile * TILE + 12
@@ -564,20 +578,21 @@ local function build_map()
                 obstacles[#obstacles + 1] = { x = x, kind = "h", hit = false }
             end
             if ch == "c" then
-                cards[#cards + 1] = { x = x + 8, y = GROUND - 12, got = false, draw = draw }
+                cards[#cards + 1] = { x = x + 8, y = GROUND - 12, got = false }
             elseif ch == "a" then
-                cards[#cards + 1] = { x = x + 8, y = GROUND - 46, got = false, draw = draw }
+                cards[#cards + 1] = { x = x + 8, y = GROUND - 46, got = false }
             elseif ch == "B" then
-                cards[#cards + 1] = { x = x + 9, y = GROUND - 46, got = false, draw = draw }
+                cards[#cards + 1] = { x = x + 9, y = GROUND - 46, got = false }
             end
             tile = tile + 1
         end
     end
     LOOP = tile * TILE
+    FINISH = LOOP + 120
 end
 
 local function region_at(x)
-    x = x % LOOP
+    if LOOPING then x = x % LOOP end
     local cur = 1
     for i, reg in ipairs(REGIONS) do
         if x >= reg.start then cur = i end
@@ -585,8 +600,9 @@ local function region_at(x)
     return cur
 end
 
--- posicao na tela de algo no mapa que se repete a cada "period" px
+-- posicao na tela de algo do mapa (repetindo quando o mapa esta em loop)
 local function wrap(sx, period)
+    if not LOOPING then return sx end
     if sx < -period / 2 then return sx + period end
     if sx > period / 2 then return sx - period end
     return sx
@@ -604,7 +620,7 @@ local howto_then = "play"
 local p = {}
 local bosses = {}
 local shots = {}
-local gap = 1           -- distancia dos chefes (0 = te pegaram)
+local gap = 1           -- distancia dos presidentes (0 = te pegaram)
 local energy = 0
 local collected = 0
 local scores = {}
@@ -615,14 +631,17 @@ local function start_phase(n)
     phase = n
     P = PHASES[n]
     REGIONS = P.regions
+    LOOPING = P.combat or false
     build_map()
     p = { x = 0, dist = 0, y = GROUND, vy = 0, onground = true, slide = 0,
           fastfall = false, stumble = 0, inv = 0, shield = 0, shieldCD = 0,
           beam = 0, won = false, winT = 0 }
     bosses = {}
-    for i, id in ipairs(P.bosses) do
-        bosses[i] = { def = BOSS_DEFS[id], hp = P.hp, sx = -60 - i * 30, flash = 0,
-                      dead = false, timer = P.fire + flr((i - 1) * P.fire / #P.bosses) }
+    for i, bd in ipairs(P.bosses) do
+        local fire = bd.fire or 0
+        bosses[i] = { def = BOSS_DEFS[bd.id], hp = bd.hp or 1, maxhp = bd.hp or 1,
+                      fire = fire, timer = fire + (i - 1) * 50,
+                      sx = -60 - i * 30, flash = 0, dead = false }
     end
     shots = {}
     gap = 1
@@ -635,18 +654,19 @@ end
 
 local function go_title()
     start_phase(1)
+    LOOPING = true      -- o cenario do menu fica rodando sem parar
     state = "title"
     menu_sel = 1
 end
 
 local function boss_names()
-    if #P.bosses > 1 then return "TODOS OS PRESIDENTES" end
-    return BOSS_DEFS[P.bosses[1]].name
+    if #bosses > 1 then return "TODOS OS PRESIDENTES" end
+    return bosses[1].def.name
 end
 
 local function phase_name(n)
     local ph = PHASES[n]
-    if ph.final then return "FASE FINAL: O MUNDO" end
+    if ph.combat then return "BATALHA FINAL: " .. ph.country end
     return "FASE " .. n .. ": " .. ph.country
 end
 
@@ -701,7 +721,7 @@ local function damage(b, n)
 end
 
 local function finish_phase()
-    scores[phase] = { cards = collected, bosses = #bosses }
+    scores[phase] = { cards = collected, bosses = P.combat and #bosses or 0 }
     if single or phase == #PHASES then
         state = "win"
         if not single then unlocked = true end
@@ -713,42 +733,13 @@ end
 
 local function boss_target(i)
     if #bosses > 1 then
-        return PLAYER_X - 28 - gap * 60 - (i - 1) * 24
+        return PLAYER_X - 30 - gap * 60 - (i - 1) * 26
     end
     return PLAYER_X - 28 - gap * 110
 end
 
-local function update_run()
-    runT = runT + 1
-    local spd = P.speed
-    if p.stumble > 0 then
-        spd = spd * 0.6
-        p.stumble = p.stumble - 1
-    end
-    p.x = p.x + spd
-    p.dist = p.dist + spd
-
-    -- o mapa repete: volta ao inicio e os itens reaparecem
-    if p.x >= LOOP then
-        p.x = p.x - LOOP
-        for _, o in ipairs(obstacles) do o.hit = false end
-        for _, c in ipairs(cards) do c.got = false end
-    end
-
-    -- controles
-    if pressed_jump() and p.onground then
-        p.vy = JUMP_V
-        p.onground = false
-        p.slide = 0
-    end
-    if pressed_slide() then
-        if p.onground then
-            p.slide = SLIDE_T
-        else
-            p.vy = math.max(p.vy, 7)
-            p.fastfall = true
-        end
-    end
+local function update_combat()
+    -- ataques do jogador
     if pressed_reflect() and p.shieldCD == 0 then
         p.shield = 14
         p.shieldCD = 30
@@ -760,69 +751,23 @@ local function update_run()
         for _, b in ipairs(bosses) do damage(b, 3) end
         gap = math.min(1, gap + 0.3)
     end
-
-    -- fisica
-    if not p.onground then
-        p.vy = p.vy + GRAV
-        p.y = p.y + p.vy
-        if p.y >= GROUND then
-            p.y = GROUND
-            p.vy = 0
-            p.onground = true
-            if p.fastfall then p.slide = SLIDE_T end
-            p.fastfall = false
-        end
-    end
-    if p.slide > 0 then p.slide = p.slide - 1 end
-    if p.inv > 0 then p.inv = p.inv - 1 end
     if p.shield > 0 then p.shield = p.shield - 1 end
     if p.shieldCD > 0 then p.shieldCD = p.shieldCD - 1 end
     if p.beam > 0 then p.beam = p.beam - 1 end
 
-    -- obstaculos
-    local x0, y0, x1, y1 = player_box()
-    for _, o in ipairs(obstacles) do
-        if not o.hit and o.x < x1 + 30 and o.x > x0 - 40 then
-            local hit
-            if o.kind == "b" then
-                hit = overlap(x0, y0, x1, y1, o.x + 2, GROUND - 22, o.x + 16, GROUND)
-            else
-                hit = overlap(x0, y0, x1, y1, o.x, 0, o.x + 22, GROUND - 17)
-            end
-            if hit then
-                o.hit = true
-                hurt(0.55)
-            end
-        end
-    end
-    if state ~= "run" then return end
-
-    -- cartoes: pontos e energia do kamehameha
-    for _, c in ipairs(cards) do
-        if not c.got and c.x > x0 - 30 and c.x < x1 + 30
-            and overlap(x0, y0, x1, y1, c.x - 12, c.y - 7, c.x + 12, c.y + 7) then
-            c.got = true
-            collected = collected + 1
-            energy = math.min(ENERGY_MAX, energy + 1)
-        end
-    end
-
-    -- chefes correm atras e atiram para frente
+    -- presidentes atiram para frente
     for i, b in ipairs(bosses) do
-        if b.flash > 0 then b.flash = b.flash - 1 end
-        if b.dead then
-            b.sx = b.sx - 2
-        else
-            b.sx = b.sx + (boss_target(i) - b.sx) * 0.1
+        if not b.dead then
             b.timer = b.timer - 1
             if b.timer <= 0 then
-                b.timer = P.fire
+                b.timer = b.fire
                 shots[#shots + 1] = { x = b.sx + b.def.w + 6, y = GROUND - 18, dir = 1, owner = i }
             end
         end
     end
 
     -- tiros (em coordenadas de tela)
+    local x0, y0, x1, y1 = player_box()
     local sx0 = PLAYER_X
     local sx1 = sx0 + (x1 - x0)
     for i = #shots, 1, -1 do
@@ -851,12 +796,103 @@ local function update_run()
         if remove then table.remove(shots, i) end
     end
 
-    -- os chefes recuperam a distancia aos poucos
-    gap = math.min(1, gap + 0.0015)
-
     if p.won then
         p.winT = p.winT + 1
         if p.winT >= 120 then finish_phase() end
+    end
+end
+
+local function update_run()
+    runT = runT + 1
+    local spd = P.speed
+    if not LOOPING then spd = spd + (p.x / FINISH) * 1.2 end
+    if p.stumble > 0 then
+        spd = spd * 0.6
+        p.stumble = p.stumble - 1
+    end
+    p.x = p.x + spd
+    p.dist = p.dist + spd
+
+    -- na batalha final o mapa repete: volta ao inicio e os itens reaparecem
+    if LOOPING and p.x >= LOOP then
+        p.x = p.x - LOOP
+        for _, o in ipairs(obstacles) do o.hit = false end
+        for _, c in ipairs(cards) do c.got = false end
+    end
+
+    -- pular e deslizar
+    if pressed_jump() and p.onground then
+        p.vy = JUMP_V
+        p.onground = false
+        p.slide = 0
+    end
+    if pressed_slide() then
+        if p.onground then
+            p.slide = SLIDE_T
+        else
+            p.vy = math.max(p.vy, 7)
+            p.fastfall = true
+        end
+    end
+
+    if not p.onground then
+        p.vy = p.vy + GRAV
+        p.y = p.y + p.vy
+        if p.y >= GROUND then
+            p.y = GROUND
+            p.vy = 0
+            p.onground = true
+            if p.fastfall then p.slide = SLIDE_T end
+            p.fastfall = false
+        end
+    end
+    if p.slide > 0 then p.slide = p.slide - 1 end
+    if p.inv > 0 then p.inv = p.inv - 1 end
+
+    -- obstaculos
+    local x0, y0, x1, y1 = player_box()
+    for _, o in ipairs(obstacles) do
+        if not o.hit and o.x < x1 + 30 and o.x > x0 - 40 then
+            local hit
+            if o.kind == "b" then
+                hit = overlap(x0, y0, x1, y1, o.x + 2, GROUND - 22, o.x + 16, GROUND)
+            else
+                hit = overlap(x0, y0, x1, y1, o.x, 0, o.x + 22, GROUND - 17)
+            end
+            if hit then
+                o.hit = true
+                hurt(0.55)
+            end
+        end
+    end
+    if state ~= "run" then return end
+
+    -- cartoes: pontos (e energia do kamehameha na batalha final)
+    for _, c in ipairs(cards) do
+        if not c.got and c.x > x0 - 30 and c.x < x1 + 30
+            and overlap(x0, y0, x1, y1, c.x - 12, c.y - 7, c.x + 12, c.y + 7) then
+            c.got = true
+            collected = collected + 1
+            energy = math.min(ENERGY_MAX, energy + 1)
+        end
+    end
+
+    -- presidentes correndo atras
+    for i, b in ipairs(bosses) do
+        if b.flash > 0 then b.flash = b.flash - 1 end
+        if b.dead then
+            b.sx = b.sx - 2
+        else
+            b.sx = b.sx + (boss_target(i) - b.sx) * 0.1
+        end
+    end
+
+    gap = math.min(1, gap + 0.0015)
+
+    if P.combat then
+        update_combat()
+    elseif p.x >= FINISH then
+        finish_phase()
     end
 end
 
@@ -908,7 +944,7 @@ local function draw_world(cam, dist, scenery)
         end
     end
 
-    -- pontos turisticos (parallax 0.6, repetindo junto com o mapa)
+    -- pontos turisticos (parallax 0.6)
     local period = LOOP * 0.6
     for _, rg in ipairs(REGIONS) do
         for _, off in ipairs({ 220, 760 }) do
@@ -941,6 +977,21 @@ local function draw_world(cam, dist, scenery)
         end
     end
 
+    -- linha de chegada (fases sem combate)
+    if not LOOPING then
+        local fx = flr(FINISH - cam)
+        if fx > -40 and fx < 520 then
+            for i = 0, 9 do
+                for j = 0, 1 do
+                    local col = ((i + j) % 2 == 0) and C(0x000000) or C(0xffffff)
+                    ui.rectfill(fx + j * 6, GROUND - 100 + i * 10, fx + j * 6 + 5, GROUND - 91 + i * 10, col)
+                end
+            end
+            ui.rectfill(fx - 30, GROUND - 120, fx + 42, GROUND - 102, C(0xac3232))
+            ui.print("CHEGADA", fx - 15, GROUND - 115, C(0xffffff))
+        end
+    end
+
     -- obstaculos
     for _, o in ipairs(obstacles) do
         local x = flr(wrap(o.x - cam, LOOP))
@@ -959,7 +1010,7 @@ local function draw_world(cam, dist, scenery)
             local x = wrap(c.x - cam, LOOP)
             if x > -30 and x < 510 then
                 local bob = math.sin((Frame_now + i * 7) * 0.12) * 2
-                c.draw(x, c.y + bob)
+                P.draw_card(x, c.y + bob)
             end
         end
     end
@@ -988,7 +1039,7 @@ local function draw_bosses(frame)
             end
             if b.dead then
                 ui.print("KO", x + 2, GROUND - 64, C(0xffffff))
-            elseif b.timer <= 40 and state == "run" and flr(frame / 4) % 2 == 0 then
+            elseif P.combat and b.timer <= 40 and state == "run" and flr(frame / 4) % 2 == 0 then
                 ui.print("!", x + 7, GROUND - 64, C(0xac3232))
             end
         end
@@ -1008,42 +1059,49 @@ local function draw_hud(frame)
     P.draw_card(22, 12)
     ui.print("x " .. collected, 40, 8, C(0xffffff))
 
-    -- energia do kamehameha
-    ui.print("KAME", 8, 24, C(0xffffff))
-    local full = energy >= ENERGY_MAX
-    local ecol = (full and flr(frame / 8) % 2 == 0) and C(0xffffff) or C(0x5fcde4)
-    bar(40, 25, 80, energy / ENERGY_MAX, ecol)
-    if full then ui.print("G/DIREITA!", 126, 24, C(0x5fcde4)) end
+    -- distancia dos presidentes
+    ui.print("FUGA", 8, 24, C(0xffffff))
+    bar(40, 25, 80, gap, gap < 0.5 and C(0xac3232) or C(0xfbf236))
 
-    -- distancia dos chefes
-    ui.print("FUGA", 8, 36, C(0xffffff))
-    bar(40, 37, 80, gap, gap < 0.5 and C(0xac3232) or C(0xfbf236))
+    if P.combat then
+        -- energia do kamehameha
+        ui.print("KAME", 8, 36, C(0xffffff))
+        local full = energy >= ENERGY_MAX
+        local ecol = (full and flr(frame / 8) % 2 == 0) and C(0xffffff) or C(0x5fcde4)
+        bar(40, 37, 80, energy / ENERGY_MAX, ecol)
+        if full then
+            ui.print("G /", 126, 36, C(0x5fcde4))
+            draw_arrow(146, 36, "right", C(0x5fcde4))
+        end
 
-    -- vida dos chefes
-    local multi = #bosses > 1
-    for i, b in ipairs(bosses) do
-        local col = multi and (i - 1) % 2 or 0
-        local row = multi and flr((i - 1) / 2) or 0
-        local x = 200 + col * 140
-        local y = 8 + row * 12
-        local name = b.def.name
-        ui.print(name, x, y, b.dead and C(0x847e87) or C(0xffffff))
-        local bx = x + (#name + 1) * FONT_W
-        local bw = (multi and x + 134 or 466) - bx
-        bar(bx, y + 1, bw, b.hp / P.hp, C(0xac3232))
+        -- vida dos presidentes
+        for i, b in ipairs(bosses) do
+            local x = 200 + ((i - 1) % 2) * 140
+            local y = 8 + flr((i - 1) / 2) * 12
+            local name = b.def.name
+            ui.print(name, x, y, b.dead and C(0x847e87) or C(0xffffff))
+            local bx = x + (#name + 1) * FONT_W
+            bar(bx, y + 1, x + 134 - bx, b.hp / b.maxhp, C(0xac3232))
+        end
+    else
+        -- progresso ate a chegada
+        local bx0, bx1 = 200, 460
+        ui.print("CHEGADA", bx0, 8, C(0xffffff))
+        local px = bx0 + 48
+        bar(px, 9, bx1 - px, ui.mid(0, p.x / FINISH, 1), C(0x6abe30))
     end
 
     -- aviso de inicio de fase
     if runT < 150 then
         local s = phase_name(phase)
-        local s2 = "CHEFE: " .. boss_names()
+        local s2 = (P.combat and "DERROTE " or "FUJA DO ") .. boss_names() .. "!"
         local bx = math.min(cx(s), cx(s2)) - 8
         ui.rectfill(bx, 54, 480 - bx, 84, C(0x222034))
         ui.print(s, cx(s), 59, C(0xfbf236))
         ui.print(s2, cx(s2), 73, C(0xffffff))
     end
     if p.won and flr(frame / 10) % 2 == 0 then
-        local s = #bosses > 1 and "CHEFES DERROTADOS!" or "CHEFE DERROTADO!"
+        local s = "PRESIDENTES DERROTADOS!"
         ui.print(s, cx(s), 96, C(0xfbf236))
     end
 end
@@ -1060,18 +1118,19 @@ end
 
 -- ===================================================================
 -- Tela de como jogar (uma pagina por botao)
+-- teclas: texto normal ou uma seta ("@up", "@down", "@left", "@right")
 -- ===================================================================
 local HOWTO = {
-    { title = "PULAR", keys = { "Z", "CIMA" }, demo = "jump",
+    { title = "PULAR", keys = { "Z", "@up" }, demo = "jump",
       text = { "PULE AS BARREIRAS AMARELAS", "E PEGUE OS CARTOES NO ALTO." } },
-    { title = "DESLIZAR", keys = { "X", "BAIXO" }, demo = "slide",
-      text = { "DESLIZE POR BAIXO DAS PLACAS.", "TAMBEM SERVE PARA DESVIAR DOS TIROS." } },
-    { title = "REFLETIR", keys = { "F", "ESQUERDA" }, demo = "reflect",
-      text = { "QUANDO O TIRO DO CHEFE CHEGAR, APERTE", "PARA DEVOLVER E TIRAR VIDA DELE." } },
-    { title = "KAMEHAMEHA", keys = { "G", "DIREITA" }, demo = "kame",
-      text = { "JUNTE 10 CARTOES PARA CARREGAR.", "O RAIO CAUSA 3X MAIS DANO!" } },
+    { title = "DESLIZAR", keys = { "X", "@down" }, demo = "slide",
+      text = { "DESLIZE POR BAIXO DAS PLACAS.", "NA BATALHA, TAMBEM DESVIA DOS TIROS." } },
+    { title = "REFLETIR", keys = { "F", "@left" }, demo = "reflect",
+      text = { "SO NA BATALHA FINAL: QUANDO O TIRO", "CHEGAR, APERTE PARA DEVOLVER O ATAQUE." } },
+    { title = "KAMEHAMEHA", keys = { "G", "@right" }, demo = "kame",
+      text = { "SO NA BATALHA FINAL: JUNTE 10 CARTOES.", "O RAIO CAUSA 3X MAIS DANO!" } },
     { title = "OBJETIVO", keys = {}, demo = "goal",
-      text = { "O MAPA SE REPETE ATE O CHEFE CAIR.", "DERROTE O CHEFE PARA PASSAR DE FASE.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
+      text = { "EUA, BRASIL E CHINA: FUJA ATE A CHEGADA.", "NA COREIA DO NORTE, ENFRENTE TODOS", "OS PRESIDENTES E O KIM JONG UN!" } },
 }
 
 local function draw_demo(kind, frame)
@@ -1095,11 +1154,11 @@ local function draw_demo(kind, frame)
         draw_runner(200, gy, ox > 165 and ox < 225, frame)
     elseif kind == "reflect" then
         local t = frame % 90
-        draw_trump(130, gy, frame)
+        draw_kim(130, gy, frame)
         if t < 40 then
-            draw_tomahawk(150 + t * 2.6, gy - 18, 1)
+            draw_nuke(156 + t * 2.5, gy - 18, 1)
         elseif t < 70 then
-            draw_tomahawk(254 - (t - 40) * 4, gy - 18, -1)
+            draw_nuke(256 - (t - 40) * 4, gy - 18, -1)
         end
         draw_runner(262, gy, false, frame)
         if t >= 34 and t < 48 then
@@ -1109,11 +1168,11 @@ local function draw_demo(kind, frame)
         if t >= 66 and t < 80 then ui.print("-1", 132, by0 + 6, C(0xac3232)) end
     elseif kind == "kame" then
         local t = frame % 120
-        draw_trump(130, gy, frame)
+        draw_kim(130, gy, frame)
         draw_runner(280, gy, false, frame)
         if t < 50 then
             bar(262, by0 + 8, 40, t / 50, C(0x5fcde4))
-            draw_green_card(240 + (t % 25) * 2, gy - 40)
+            draw_visa_card(240 + (t % 25) * 2, gy - 40)
         elseif t < 86 then
             draw_beam(100, 276, gy - 16, frame)
             ui.print("G!", 276, by0 + 6, C(0xffffff))
@@ -1140,13 +1199,12 @@ local function draw_howto(frame)
     ui.print(s, cx(s), 28, C(0x847e87))
     ui.print(pg.title, cx(pg.title), 44, C(0xfbf236))
 
-    -- teclas
+    -- teclas (as setas viram triangulos)
     if #pg.keys > 0 then
-        local parts = {}
-        local total = 0
+        local widths, total = {}, 0
         for i, k in ipairs(pg.keys) do
-            local w = #k * FONT_W + 10
-            parts[i] = w
+            local w = (k:sub(1, 1) == "@") and 20 or (#k * FONT_W + 10)
+            widths[i] = w
             total = total + w + (i > 1 and 30 or 0)
         end
         local x = flr(240 - total / 2)
@@ -1155,10 +1213,15 @@ local function draw_howto(frame)
                 ui.print("OU", x + 9, 63, C(0x847e87))
                 x = x + 30
             end
-            ui.rectfill(x, 58, x + parts[i], 74, C(0xffffff))
-            ui.rectfill(x + 1, 72, x + parts[i] - 1, 74, C(0x9badb7))
-            ui.print(k, x + 5, 62, C(0x000000))
-            x = x + parts[i]
+            local w = widths[i]
+            ui.rectfill(x, 58, x + w, 74, C(0xffffff))
+            ui.rectfill(x + 1, 72, x + w - 1, 74, C(0x9badb7))
+            if k:sub(1, 1) == "@" then
+                draw_arrow(x + 6, 61, k:sub(2), C(0x000000))
+            else
+                ui.print(k, x + 5, 62, C(0x000000))
+            end
+            x = x + w
         end
     end
 
@@ -1205,7 +1268,7 @@ local function menu_items()
         { label = "COMO JOGAR", action = "howto" },
     }
     for n, ph in ipairs(PHASES) do
-        local label = ph.final and "FASE FINAL - O MUNDO" or ("FASE " .. n .. " - " .. ph.country)
+        local label = ph.combat and "BATALHA FINAL - COREIA" or ("FASE " .. n .. " - " .. ph.country)
         items[#items + 1] = { label = label, phase = n, locked = not unlocked }
     end
     return items
@@ -1265,8 +1328,12 @@ local function draw_title(frame)
     draw_xi(418, GROUND, frame)
     draw_kim(450, GROUND, frame)
 
-    t = "CIMA/BAIXO: ESCOLHER   Z: CONFIRMAR"
-    ui.print(t, cx(t), GROUND + 8, C(0xffffff))
+    -- controles: setas para escolher, Z para confirmar
+    t = ": ESCOLHER   Z: CONFIRMAR"
+    local x = flr(240 - (20 + #t * FONT_W) / 2)
+    draw_arrow(x, GROUND + 8, "up", C(0xffffff))
+    draw_arrow(x + 10, GROUND + 8, "down", C(0xffffff))
+    ui.print(t, x + 20, GROUND + 8, C(0xffffff))
 end
 
 -- ===================================================================
@@ -1392,12 +1459,13 @@ function loop(frame)
         draw_howto(frame)
     elseif state == "clear" then
         local nxt = PHASES[phase + 1]
-        local who = #nxt.bosses > 1 and "TODOS OS PRESIDENTES JUNTOS!" or ("CUIDADO COM O " .. BOSS_DEFS[nxt.bosses[1]].name .. "!")
+        local who = nxt.combat and "TODOS OS PRESIDENTES + KIM JONG UN!"
+            or ("CUIDADO COM O " .. BOSS_DEFS[nxt.bosses[1].id].name .. "!")
         panel({
-            { "VOCE DERROTOU O " .. boss_names() .. "!", 0x6abe30 },
+            { "VOCE ESCAPOU DO " .. boss_names() .. "!", 0x6abe30 },
             { "", 0xffffff },
-            { P.card .. ": " .. collected, 0xfbf236 },
-            { "PONTUACAO: " .. (collected * 100 + 1000), 0xffffff },
+            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
+            { "PONTUACAO: " .. collected * 100, 0xffffff },
             { "", 0xffffff },
             { "PROXIMA: " .. phase_name(phase + 1), 0xffffff },
             { who, 0xac3232 },
@@ -1405,11 +1473,13 @@ function loop(frame)
             { blink and "APERTE Z PARA CONTINUAR" or "", 0xcbdbfc },
         })
     elseif state == "win" and single then
+        local msg = P.combat and "VOCE DERROTOU TODOS OS PRESIDENTES!" or ("VOCE ESCAPOU DO " .. boss_names() .. "!")
+        local pts = collected * 100 + (P.combat and #bosses * 1000 or 0)
         panel({
-            { "VOCE DERROTOU " .. (#bosses > 1 and "" or "O ") .. boss_names() .. "!", 0x6abe30 },
+            { msg, 0x6abe30 },
             { "", 0xffffff },
             { P.card .. ": " .. collected, 0xfbf236 },
-            { "PONTUACAO: " .. (collected * 100 + #bosses * 1000), 0xffffff },
+            { "PONTUACAO: " .. pts, 0xffffff },
             { "", 0xffffff },
             { blink and "APERTE Z PARA VOLTAR AO MENU" or "", 0xcbdbfc },
         })
