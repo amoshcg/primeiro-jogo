@@ -3,8 +3,9 @@ require "sprites"
 
 -- ===================================================================
 -- Trump's Run - corrida 2D pelo mundo
--- O personagem corre sozinho: CIMA/Z pula, BAIXO/X desliza.
--- Cada fase e um pais, com um presidente correndo atras de voce.
+-- O personagem corre sozinho: CIMA/Z pula, BAIXO/X desliza,
+-- ESQUERDA/F reflete os tiros e DIREITA/G solta o kamehameha.
+-- Cada fase e um pais, com um presidente correndo atras e atirando.
 -- ===================================================================
 
 local GROUND = 222      -- linha do chao (pes do personagem)
@@ -51,6 +52,8 @@ local TINY = {
     ["+"] = { "000", "010", "111", "010", "000" },
     ["1"] = { "010", "110", "010", "010", "111" },
     ["0"] = { "111", "101", "101", "101", "111" },
+    V = { "101", "101", "101", "101", "010" },
+    I = { "111", "010", "010", "010", "111" },
 }
 
 local function draw_tiny(text, x, y, col)
@@ -289,21 +292,200 @@ local function lm_hongkong(x)
     ui.trisfill(x + 200, g, x + 240, g, x + 230, g - 150, C(0x9badb7))
 end
 
+local function lm_pyongyang(x)
+    -- Hotel Ryugyong (piramide) e Torre Juche
+    ui.trisfill(x - 50, g, x + 50, g, x, g - 150, C(0x847e87))
+    ui.rectfill(x - 2, g - 162, x + 2, g - 148, C(0x847e87))
+    ui.rectfill(x + 90, g - 120, x + 98, g, C(0xffffff))
+    ui.trisfill(x + 88, g - 120, x + 100, g - 120, x + 94, g - 134, C(0xac3232))
+end
+
+local function lm_dmz(x)
+    -- cerca da zona desmilitarizada e torre de vigia
+    for k = 0, 10 do
+        ui.rectfill(x + k * 20, g - 30, x + k * 20 + 2, g, C(0x696a6a))
+    end
+    for k = 0, 2 do
+        ui.line(x, g - 28 + k * 9, x + 202, g - 28 + k * 9, C(0x595652))
+    end
+    ui.rectfill(x + 230, g - 70, x + 254, g, C(0x8a6f30))
+    ui.rectfill(x + 226, g - 80, x + 258, g - 70, C(0x663931))
+end
+
+local function lm_misseis(x)
+    -- misseis na plataforma de lancamento
+    for k = 0, 2 do
+        local mx = x + k * 60
+        local top = g - 90 + k * 10
+        ui.rectfill(mx - 12, g - 10, mx + 12, g, C(0x595652))
+        ui.rectfill(mx - 5, top, mx + 5, g - 10, C(0xcbdbfc))
+        ui.trisfill(mx - 5, top, mx + 5, top, mx, top - 14, C(0xac3232))
+        ui.trisfill(mx - 5, g - 26, mx - 5, g - 10, mx - 11, g - 10, C(0x696a6a))
+        ui.trisfill(mx + 5, g - 26, mx + 5, g - 10, mx + 11, g - 10, C(0x696a6a))
+    end
+end
+
 -- ===================================================================
--- Fases (paises). Mapa estatico de cada pais:
+-- Mais coletaveis e chefes
+-- ===================================================================
+local function draw_visa_card(x, y)
+    -- cartao com as cores da Coreia do Norte e a palavra VISA
+    x, y = flr(x), flr(y)
+    ui.rectfill(x - 13, y - 6, x + 13, y + 6, C(0x306082))
+    ui.rectfill(x - 13, y - 3, x + 13, y + 3, C(0xffffff))
+    ui.rectfill(x - 13, y - 2, x + 13, y + 2, C(0xac3232))
+    ui.rect(x - 13, y - 6, x + 13, y + 6, C(0x000000))
+    draw_tiny("VISA", x - 7, y - 2, C(0xffffff))
+end
+
+local function draw_kim(x, y, frame)
+    -- gordinho de terno escuro, cabelo meia-lua e oculos pulando
+    ui.rectfill(x - 3, y - 30, x + 21, y, C(0x323c39))
+    ui.rectfill(x - 5, y - 24, x + 23, y - 8, C(0x323c39))
+    ui.rectfill(x + 9, y - 26, x + 10, y - 25, C(0x847e87))
+    ui.rectfill(x + 9, y - 18, x + 10, y - 17, C(0x847e87))
+    ui.circfill(x + 9, y - 42, 10, C(0x000000))
+    ui.rectfill(x - 1, y - 42, x + 19, y - 29, C(0xeec39a))
+    local gy = y - 39 - flr(math.abs(math.sin(frame * 0.5)) * 3)
+    ui.rect(x + 7, gy, x + 11, gy + 3, C(0x000000))
+    ui.rect(x + 14, gy, x + 18, gy + 3, C(0x000000))
+    ui.line(x + 11, gy + 1, x + 14, gy + 1, C(0x000000))
+    ui.rectfill(x + 12, y - 32, x + 16, y - 31, C(0x8f563b))
+end
+
+-- desenha retangulo aceitando coordenadas em qualquer ordem (para espelhar)
+local function rf(x0, y0, x1, y1, col)
+    if x0 > x1 then x0, x1 = x1, x0 end
+    ui.rectfill(x0, y0, x1, y1, col)
+end
+
+local function flame(x, y, d)
+    local f = (flr(Frame_now / 3) % 2 == 0) and C(0xdf7126) or C(0xfbf236)
+    rf(x, y - 1, x - 4 * d, y + 1, f)
+end
+
+-- d = 1 indo para a direita (ataque), d = -1 voltando (refletido)
+local function draw_tomahawk(x, y, d)
+    x, y = flr(x), flr(y)
+    rf(x - 10 * d, y - 2, x + 8 * d, y + 1, C(0xcbdbfc))
+    ui.trisfill(x + 8 * d, y - 2, x + 8 * d, y + 1, x + 13 * d, y, C(0x847e87))
+    rf(x - 4 * d, y - 4, x - 2 * d, y + 3, C(0x696a6a))
+    rf(x - 10 * d, y - 2, x - 8 * d, y + 1, C(0x306082))
+    flame(x - 11 * d, y, d)
+end
+
+local function draw_picanha(x, y, d)
+    x, y = flr(x), flr(y)
+    ui.rectfill(x - 8, y - 2, x + 8, y + 4, C(0xac3232))
+    ui.rectfill(x - 8, y - 4, x + 8, y - 2, C(0xffffff))
+    ui.line(x - 4, y - 1, x - 6, y + 3, C(0x663931))
+    ui.line(x + 2, y - 1, x, y + 3, C(0x663931))
+end
+
+local function draw_gpu(x, y, d)
+    x, y = flr(x), flr(y)
+    ui.rectfill(x - 10, y - 5, x + 10, y + 4, C(0x222034))
+    ui.circfill(x - 5, y, 3, C(0x696a6a))
+    ui.circfill(x + 5, y, 3, C(0x696a6a))
+    ui.rectfill(x - 5, y, x - 5, y, C(0x000000))
+    ui.rectfill(x + 5, y, x + 5, y, C(0x000000))
+    ui.rectfill(x - 10, y + 4, x + 10, y + 5, C(0x37946e))
+    ui.rectfill(x - 7, y + 6, x + 7, y + 7, C(0xd9a066))
+end
+
+local function draw_nuke(x, y, d)
+    x, y = flr(x), flr(y)
+    rf(x - 12 * d, y - 4, x + 8 * d, y + 3, C(0x4b692f))
+    ui.trisfill(x + 8 * d, y - 4, x + 8 * d, y + 3, x + 15 * d, y, C(0xac3232))
+    rf(x - 2 * d, y - 4, x + 1 * d, y + 3, C(0xfbf236))
+    ui.trisfill(x - 12 * d, y - 4, x - 7 * d, y - 4, x - 12 * d, y - 8, C(0x222034))
+    ui.trisfill(x - 12 * d, y + 3, x - 7 * d, y + 3, x - 12 * d, y + 7, C(0x222034))
+    flame(x - 13 * d, y, d)
+end
+
+local BOSS_DEFS = {
+    trump = { name = "TRUMP",       draw = draw_trump, shot = draw_tomahawk, w = 16 },
+    lula  = { name = "LULA",        draw = draw_lula,  shot = draw_picanha,  w = 18 },
+    xi    = { name = "XI JINPING",  draw = draw_xi,    shot = draw_gpu,      w = 16 },
+    kim   = { name = "KIM JONG UN", draw = draw_kim,   shot = draw_nuke,     w = 22 },
+}
+
+-- ===================================================================
+-- Obstaculos e jogador (gy = linha do chao onde desenhar)
+-- ===================================================================
+local function draw_barrier(x, gy)
+    local K, Y, R = C(0x000000), C(0xfbf236), C(0xac3232)
+    ui.rectfill(x - 1, gy + 1, x + 19, gy + 3, K)
+    ui.rectfill(x + 1, gy - 23, x + 5, gy, K)
+    ui.rectfill(x + 13, gy - 23, x + 17, gy, K)
+    ui.rectfill(x + 2, gy - 22, x + 4, gy, R)
+    ui.rectfill(x + 14, gy - 22, x + 16, gy, R)
+    ui.rectfill(x - 1, gy - 24, x + 19, gy - 14, K)
+    for s = 0, 4 do
+        local col = (s % 2 == 0) and Y or K
+        ui.rectfill(x + s * 4, gy - 23, x + s * 4 + 3, gy - 15, col)
+    end
+    ui.trisfill(x + 4, gy - 30, x + 14, gy - 30, x + 9, gy - 36, Y)
+end
+
+local function draw_hsign(x, gy, tag)
+    local K, Y, R = C(0x000000), C(0xfbf236), C(0xac3232)
+    ui.rectfill(x + 8, 0, x + 13, gy - 60, K)
+    ui.rectfill(x + 9, 0, x + 12, gy - 60, R)
+    ui.rectfill(x - 4, gy - 62, x + 26, gy - 15, K)
+    ui.rectfill(x - 2, gy - 60, x + 24, gy - 17, Y)
+    ui.rectfill(x + 1, gy - 57, x + 21, gy - 20, R)
+    ui.print(tag, x + 3, gy - 52, C(0xffffff))
+    ui.trisfill(x + 4, gy - 38, x + 18, gy - 38, x + 11, gy - 26, C(0xffffff))
+end
+
+local function draw_runner(x, y, slide, frame)
+    y = flr(y)
+    if slide then
+        ui.rectfill(x, y - 10, x + 22, y, C(0x306082))
+        ui.rectfill(x + 16, y - 12, x + 24, y - 4, C(0xeec39a))
+        ui.rectfill(x + 16, y - 13, x + 24, y - 10, C(0x663931))
+    else
+        local leg = (flr(frame / 6) % 2 == 0) and 2 or 0
+        ui.rectfill(x + 1, y - 8, x + 4, y - leg, C(0x306082))
+        ui.rectfill(x + 7, y - 8, x + 10, y - 2 + leg, C(0x306082))
+        ui.rectfill(x, y - 20, x + 11, y - 8, C(0x99e550))
+        ui.rectfill(x + 2, y - 26, x + 11, y - 20, C(0xeec39a))
+        ui.rectfill(x + 1, y - 28, x + 11, y - 25, C(0x663931))
+        ui.rectfill(x + 8, y - 24, x + 9, y - 23, C(0x000000))
+    end
+end
+
+local function draw_shield(x, y, slide)
+    local top = slide and y - 16 or y - 32
+    ui.rectfill(x - 9, top - 1, x - 3, y + 1, C(0xffffff))
+    ui.rectfill(x - 8, top, x - 4, y, C(0x5fcde4))
+end
+
+local function draw_beam(x0, x1, cy, frame)
+    local r = (frame % 4 < 2) and 6 or 5
+    ui.rectfill(x0, cy - r, x1, cy + r, C(0x5fcde4))
+    ui.rectfill(x0, cy - 2, x1, cy + 2, C(0xffffff))
+    ui.circfill(x1, cy, r + 3, C(0x5fcde4))
+    ui.circfill(x1, cy, r - 1, C(0xffffff))
+end
+
+-- ===================================================================
+-- Fases. Mapa estatico de cada fase, que se repete em loop
+-- ate o chefe ser derrotado:
 --   .  vazio
 --   b  barreira (pular)
 --   h  placa suspensa (deslizar)
 --   c  cartao no chao
 --   a  cartao no alto (pular para pegar)
 --   B  barreira com cartao em cima
+-- Cada regiao comeca com 4 espacos vazios (para a placa com o nome).
 -- ===================================================================
 local PHASES = {
     {
-        country = "EUA", chaser = "TRUMP", card = "GREEN CARDS", tag = "USA",
-        finish = "VOCE CHEGOU NA CALIFORNIA!",
-        draw_card = draw_green_card, card_w = 8, card_h = 7,
-        draw_chaser = draw_trump,
+        country = "EUA", card = "GREEN CARDS", tag = "USA",
+        draw_card = draw_green_card, bosses = { "trump" }, hp = 6, fire = 150,
+        speed = 3.0, shot_speed = 3.0,
         regions = {
             { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
             { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "....h.ccc...b...h...B....a.a...h..b.." },
@@ -313,10 +495,9 @@ local PHASES = {
         },
     },
     {
-        country = "BRASIL", chaser = "LULA", card = "BOLSAS", tag = "BR",
-        finish = "VOCE ATRAVESSOU O BRASIL!",
-        draw_card = draw_bolsa_card, card_w = 14, card_h = 7,
-        draw_chaser = draw_lula,
+        country = "BRASIL", card = "BOLSAS", tag = "BR",
+        draw_card = draw_bolsa_card, bosses = { "lula" }, hp = 7, fire = 140,
+        speed = 3.25, shot_speed = 3.2,
         regions = {
             { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
             { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "....b..h.ccc..b..b..a.a..h..h..B...cc.." },
@@ -325,10 +506,9 @@ local PHASES = {
         },
     },
     {
-        country = "CHINA", chaser = "XI JINPING", card = "SOCIAL CREDIT", tag = "CN",
-        finish = "VOCE ESCAPOU DA CHINA!",
-        draw_card = draw_credit_card, card_w = 14, card_h = 7,
-        draw_chaser = draw_xi,
+        country = "CHINA", card = "SOCIAL CREDIT", tag = "CN",
+        draw_card = draw_credit_card, bosses = { "xi" }, hp = 8, fire = 130,
+        speed = 3.5, shot_speed = 3.4,
         regions = {
             { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,   map = "......c.c.c...h..b..ccc..B..h..b..a.a..h.." },
             { name = "GRANDE MURALHA", sky = 0x639bff, lm = lm_muralha,  map = "....b..b..ccc..h..h..B..b..a..h..b..cc." },
@@ -336,7 +516,30 @@ local PHASES = {
             { name = "HONG KONG",      sky = 0x222034, lm = lm_hongkong, map = "....b..h..ccc..B..h..b..b..a..h..b..ccc......", night = true },
         },
     },
+    {
+        country = "COREIA DO NORTE", card = "VISTOS", tag = "NK",
+        draw_card = draw_visa_card, bosses = { "kim" }, hp = 9, fire = 120,
+        speed = 3.6, shot_speed = 3.6,
+        regions = {
+            { name = "PYONGYANG",            sky = 0x9badb7, lm = lm_pyongyang, map = "......c.c.c...h..b..ccc..B..h..a.a..b..h.." },
+            { name = "ZONA DESMILITARIZADA", sky = 0xcbdbfc, lm = lm_dmz,       map = "....b..b..ccc..h..B..b..h..a..b..cc.." },
+            { name = "BASE DE MISSEIS",      sky = 0xdf7126, lm = lm_misseis,   map = "....h..b..ccc..B..h..b..a.a..h..b..ccc......" },
+        },
+    },
+    {
+        country = "MUNDO", card = "CARTOES", tag = "!!", final = true,
+        draw_card = draw_green_card, bosses = { "trump", "lula", "xi", "kim" }, hp = 5, fire = 300,
+        speed = 3.6, shot_speed = 3.4,
+        regions = {
+            { name = "NEW YORK",       sky = 0x639bff, lm = lm_liberty,   card = draw_green_card,  map = "......c.c.c...b...h...ccc...B...a..." },
+            { name = "RIO DE JANEIRO", sky = 0x5fcde4, lm = lm_rio,       card = draw_bolsa_card,  map = "....h...b..ccc...B...h...a.a...b..." },
+            { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,    card = draw_credit_card, map = "....b...h..ccc...B...b...a...h..cc.." },
+            { name = "PYONGYANG",      sky = 0xdf7126, lm = lm_pyongyang, card = draw_visa_card,   map = "....h...b...ccc...B...h...a.a...b......" },
+        },
+    },
 }
+
+local ENERGY_MAX = 10   -- cartoes para carregar o kamehameha
 
 local phase = 1
 local P = PHASES[1]
@@ -344,13 +547,14 @@ local REGIONS = P.regions
 
 local obstacles = {}
 local cards = {}
-local FINISH = 0
+local LOOP = 1          -- comprimento do mapa (depois ele repete)
 
 local function build_map()
     obstacles, cards = {}, {}
     local tile = 0
     for _, reg in ipairs(REGIONS) do
         reg.start = tile * TILE
+        local draw = reg.card or P.draw_card
         for i = 1, #reg.map do
             local ch = reg.map:sub(i, i)
             local x = tile * TILE + 12
@@ -360,19 +564,20 @@ local function build_map()
                 obstacles[#obstacles + 1] = { x = x, kind = "h", hit = false }
             end
             if ch == "c" then
-                cards[#cards + 1] = { x = x + 8, y = GROUND - 12, got = false }
+                cards[#cards + 1] = { x = x + 8, y = GROUND - 12, got = false, draw = draw }
             elseif ch == "a" then
-                cards[#cards + 1] = { x = x + 8, y = GROUND - 72, got = false }
+                cards[#cards + 1] = { x = x + 8, y = GROUND - 46, got = false, draw = draw }
             elseif ch == "B" then
-                cards[#cards + 1] = { x = x + 9, y = GROUND - 58, got = false }
+                cards[#cards + 1] = { x = x + 9, y = GROUND - 46, got = false, draw = draw }
             end
             tile = tile + 1
         end
     end
-    FINISH = tile * TILE + 120
+    LOOP = tile * TILE
 end
 
 local function region_at(x)
+    x = x % LOOP
     local cur = 1
     for i, reg in ipairs(REGIONS) do
         if x >= reg.start then cur = i end
@@ -380,17 +585,29 @@ local function region_at(x)
     return cur
 end
 
+-- posicao na tela de algo no mapa que se repete a cada "period" px
+local function wrap(sx, period)
+    if sx < -period / 2 then return sx + period end
+    if sx > period / 2 then return sx - period end
+    return sx
+end
+
 -- ===================================================================
 -- Estado do jogo
 -- ===================================================================
-local state = "title"   -- title | run | caught | clear | win
-local menu_sel = 1      -- item selecionado no menu
+local state = "title"   -- title | howto | run | caught | clear | win
+local menu_sel = 1
 local unlocked = false  -- fases liberadas depois de zerar o jogo
 local single = false    -- jogando apenas uma fase escolhida no menu
+local howto_page = 1
+local howto_then = "play"
 local p = {}
-local chaser = {}
+local bosses = {}
+local shots = {}
+local gap = 1           -- distancia dos chefes (0 = te pegaram)
+local energy = 0
 local collected = 0
-local scores = {}       -- cartoes coletados em cada fase
+local scores = {}
 local endT = 0
 local runT = 0
 
@@ -399,9 +616,17 @@ local function start_phase(n)
     P = PHASES[n]
     REGIONS = P.regions
     build_map()
-    p = { x = 0, y = GROUND, vy = 0, onground = true, slide = 0,
-          fastfall = false, stumble = 0, inv = 0 }
-    chaser = { gap = 1.0, sx = PLAYER_X - 140 }
+    p = { x = 0, dist = 0, y = GROUND, vy = 0, onground = true, slide = 0,
+          fastfall = false, stumble = 0, inv = 0, shield = 0, shieldCD = 0,
+          beam = 0, won = false, winT = 0 }
+    bosses = {}
+    for i, id in ipairs(P.bosses) do
+        bosses[i] = { def = BOSS_DEFS[id], hp = P.hp, sx = -60 - i * 30, flash = 0,
+                      dead = false, timer = P.fire + flr((i - 1) * P.fire / #P.bosses) }
+    end
+    shots = {}
+    gap = 1
+    energy = 0
     collected = 0
     endT = 0
     runT = 0
@@ -414,7 +639,16 @@ local function go_title()
     menu_sel = 1
 end
 
-go_title()
+local function boss_names()
+    if #P.bosses > 1 then return "TODOS OS PRESIDENTES" end
+    return BOSS_DEFS[P.bosses[1]].name
+end
+
+local function phase_name(n)
+    local ph = PHASES[n]
+    if ph.final then return "FASE FINAL: O MUNDO" end
+    return "FASE " .. n .. ": " .. ph.country
+end
 
 local function player_box()
     if p.slide > 0 then
@@ -427,36 +661,107 @@ local function overlap(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1)
     return ax0 < bx1 and ax1 > bx0 and ay0 < by1 and ay1 > by0
 end
 
+-- botoes
+local function pressed_jump() return ui.btnp(UP) or ui.btnp(BTN_Z) end
+local function pressed_slide() return ui.btnp(DOWN) or ui.btnp(BTN_X) end
+local function pressed_reflect() return ui.btnp(LEFT) or ui.btnp(BTN_F) end
+local function pressed_kame() return ui.btnp(RIGHT) or ui.btnp(BTN_G) end
+
 -- ===================================================================
 -- Logica
 -- ===================================================================
+local function hurt(amount)
+    if p.inv > 0 or p.won then return end
+    p.inv = 60
+    p.stumble = 40
+    gap = gap - amount
+    if gap <= 0 then
+        state = "caught"
+        endT = 0
+    end
+end
+
+local function damage(b, n)
+    if b.dead then return end
+    b.hp = b.hp - n
+    b.flash = 16
+    gap = math.min(1, gap + 0.12)
+    if b.hp <= 0 then
+        b.hp = 0
+        b.dead = true
+        local all = true
+        for _, o in ipairs(bosses) do
+            if not o.dead then all = false end
+        end
+        if all then
+            p.won = true
+            shots = {}
+        end
+    end
+end
+
+local function finish_phase()
+    scores[phase] = { cards = collected, bosses = #bosses }
+    if single or phase == #PHASES then
+        state = "win"
+        if not single then unlocked = true end
+    else
+        state = "clear"
+    end
+    endT = 0
+end
+
+local function boss_target(i)
+    if #bosses > 1 then
+        return PLAYER_X - 28 - gap * 60 - (i - 1) * 24
+    end
+    return PLAYER_X - 28 - gap * 110
+end
+
 local function update_run()
     runT = runT + 1
-    local spd = 3 + (p.x / FINISH) * 1.5 + (phase - 1) * 0.4
+    local spd = P.speed
     if p.stumble > 0 then
         spd = spd * 0.6
         p.stumble = p.stumble - 1
     end
     p.x = p.x + spd
+    p.dist = p.dist + spd
 
-    local jump = ui.btnp(UP) or ui.btnp(BTN_Z)
-    local slide = ui.btnp(DOWN) or ui.btnp(BTN_X)
+    -- o mapa repete: volta ao inicio e os itens reaparecem
+    if p.x >= LOOP then
+        p.x = p.x - LOOP
+        for _, o in ipairs(obstacles) do o.hit = false end
+        for _, c in ipairs(cards) do c.got = false end
+    end
 
-    if jump and p.onground then
+    -- controles
+    if pressed_jump() and p.onground then
         p.vy = JUMP_V
         p.onground = false
         p.slide = 0
     end
-    if slide then
+    if pressed_slide() then
         if p.onground then
             p.slide = SLIDE_T
         else
-            -- no ar: desce rapido e desliza ao tocar o chao
             p.vy = math.max(p.vy, 7)
             p.fastfall = true
         end
     end
+    if pressed_reflect() and p.shieldCD == 0 then
+        p.shield = 14
+        p.shieldCD = 30
+    end
+    if pressed_kame() and energy >= ENERGY_MAX and p.beam == 0 and not p.won then
+        p.beam = 36
+        energy = 0
+        shots = {}
+        for _, b in ipairs(bosses) do damage(b, 3) end
+        gap = math.min(1, gap + 0.3)
+    end
 
+    -- fisica
     if not p.onground then
         p.vy = p.vy + GRAV
         p.y = p.y + p.vy
@@ -470,8 +775,11 @@ local function update_run()
     end
     if p.slide > 0 then p.slide = p.slide - 1 end
     if p.inv > 0 then p.inv = p.inv - 1 end
+    if p.shield > 0 then p.shield = p.shield - 1 end
+    if p.shieldCD > 0 then p.shieldCD = p.shieldCD - 1 end
+    if p.beam > 0 then p.beam = p.beam - 1 end
 
-    -- colisao com obstaculos
+    -- obstaculos
     local x0, y0, x1, y1 = player_box()
     for _, o in ipairs(obstacles) do
         if not o.hit and o.x < x1 + 30 and o.x > x0 - 40 then
@@ -483,39 +791,72 @@ local function update_run()
             end
             if hit then
                 o.hit = true
-                if p.inv == 0 then
-                    p.inv = 60
-                    p.stumble = 40
-                    chaser.gap = chaser.gap - 0.55
-                    if chaser.gap <= 0 then
-                        state = "caught"
-                        endT = 0
-                    end
-                end
+                hurt(0.55)
+            end
+        end
+    end
+    if state ~= "run" then return end
+
+    -- cartoes: pontos e energia do kamehameha
+    for _, c in ipairs(cards) do
+        if not c.got and c.x > x0 - 30 and c.x < x1 + 30
+            and overlap(x0, y0, x1, y1, c.x - 12, c.y - 7, c.x + 12, c.y + 7) then
+            c.got = true
+            collected = collected + 1
+            energy = math.min(ENERGY_MAX, energy + 1)
+        end
+    end
+
+    -- chefes correm atras e atiram para frente
+    for i, b in ipairs(bosses) do
+        if b.flash > 0 then b.flash = b.flash - 1 end
+        if b.dead then
+            b.sx = b.sx - 2
+        else
+            b.sx = b.sx + (boss_target(i) - b.sx) * 0.1
+            b.timer = b.timer - 1
+            if b.timer <= 0 then
+                b.timer = P.fire
+                shots[#shots + 1] = { x = b.sx + b.def.w + 6, y = GROUND - 18, dir = 1, owner = i }
             end
         end
     end
 
-    -- coleta de cartoes
-    for _, c in ipairs(cards) do
-        if not c.got and overlap(x0, y0, x1, y1, c.x - P.card_w, c.y - P.card_h, c.x + P.card_w, c.y + P.card_h) then
-            c.got = true
-            collected = collected + 1
+    -- tiros (em coordenadas de tela)
+    local sx0 = PLAYER_X
+    local sx1 = sx0 + (x1 - x0)
+    for i = #shots, 1, -1 do
+        local s = shots[i]
+        local remove = false
+        if s.dir == 1 then
+            s.x = s.x + P.shot_speed
+            if p.shield > 0 and s.x + 12 >= PLAYER_X - 30 and s.x - 12 <= sx1 then
+                s.dir = -1   -- refletido!
+            elseif overlap(sx0, y0, sx1, y1, s.x - 10, s.y - 4, s.x + 10, s.y + 4) then
+                hurt(0.4)
+                remove = true
+            elseif s.x > 500 then
+                remove = true
+            end
+        else
+            s.x = s.x - 6
+            local b = bosses[s.owner]
+            if not b.dead and s.x <= b.sx + b.def.w then
+                damage(b, 1)
+                remove = true
+            elseif s.x < -30 then
+                remove = true
+            end
         end
+        if remove then table.remove(shots, i) end
     end
 
-    -- o presidente recupera a distancia aos poucos
-    chaser.gap = math.min(1, chaser.gap + 0.0015)
+    -- os chefes recuperam a distancia aos poucos
+    gap = math.min(1, gap + 0.0015)
 
-    if p.x >= FINISH then
-        scores[phase] = { got = collected, total = #cards }
-        if single or phase == #PHASES then
-            state = "win"
-            if not single then unlocked = true end
-        else
-            state = "clear"
-        end
-        endT = 0
+    if p.won then
+        p.winT = p.winT + 1
+        if p.winT >= 120 then finish_phase() end
     end
 end
 
@@ -524,7 +865,7 @@ end
 -- ===================================================================
 local function cx(s) return flr(240 - #s * FONT_W / 2) end
 
-local function draw_world(cam)
+local function draw_world(cam, dist, scenery)
     local reg = REGIONS[region_at(cam + PLAYER_X)]
     REGION_SKY = reg.sky
     ui.cls(C(reg.sky))
@@ -537,8 +878,7 @@ local function draw_world(cam)
         end
     else
         ui.circfill(420, 40, 18, C(0xfbf236))
-        -- nuvens (parallax 0.2)
-        local off = flr(cam * 0.2) % 600
+        local off = flr(dist * 0.2) % 600
         for i = 0, 3 do
             local x = i * 160 - off
             if x < -60 then x = x + 600 end
@@ -549,14 +889,13 @@ local function draw_world(cam)
         end
     end
 
-    -- predios ao fundo (parallax 0.3); na floresta, morros verdes
-    local bcam = cam * 0.3
+    -- predios ao fundo (parallax 0.3); na floresta, arvores
+    local bcam = dist * 0.3
     local k0 = flr(bcam / 40)
     for k = k0, k0 + 13 do
         local h = 30 + (k * 37) % 60
         local x = flr(k * 40 - bcam)
         if reg.forest then
-            -- arvores simples de retangulos (leve para desenhar)
             ui.rectfill(x + 15, GROUND - h + 10, x + 19, GROUND, C(0x663931))
             ui.rectfill(x + 2, GROUND - h, x + 32, GROUND - h + 16, C(0x4b692f))
         else
@@ -569,26 +908,29 @@ local function draw_world(cam)
         end
     end
 
-    -- pontos turisticos de cada regiao (parallax 0.6)
+    -- pontos turisticos (parallax 0.6, repetindo junto com o mapa)
+    local period = LOOP * 0.6
     for _, rg in ipairs(REGIONS) do
         for _, off in ipairs({ 220, 760 }) do
-            local x = flr(rg.start * 0.6 + off - cam * 0.6)
+            local x = flr(wrap(rg.start * 0.6 + off - cam * 0.6, period))
             if x > -260 and x < 740 then rg.lm(x) end
         end
     end
 
-    -- chao / estrada
+    -- estrada
     ui.rectfill(0, GROUND, 480, 270, C(0x595652))
     ui.rectfill(0, GROUND, 480, GROUND + 3, C(0x847e87))
-    local d = flr(cam) % 40
+    local d = flr(dist) % 40
     for i = 0, 13 do
         local x = i * 40 - d
         ui.rectfill(x, GROUND + 22, x + 20, GROUND + 24, C(0xffffff))
     end
 
+    if scenery then return end
+
     -- placas com o nome da regiao
     for _, rg in ipairs(REGIONS) do
-        local x = flr(rg.start + 40 - cam)
+        local x = flr(wrap(rg.start + 40 - cam, LOOP))
         if x > -150 and x < 500 then
             local w = #rg.name * FONT_W + 10
             ui.rectfill(x + 2, GROUND - 40, x + 4, GROUND, C(0x847e87))
@@ -599,125 +941,258 @@ local function draw_world(cam)
         end
     end
 
-    -- linha de chegada
-    local fx = flr(FINISH - cam)
-    if fx > -40 and fx < 520 then
-        for i = 0, 9 do
-            for j = 0, 1 do
-                local col = ((i + j) % 2 == 0) and C(0x000000) or C(0xffffff)
-                ui.rectfill(fx + j * 6, GROUND - 100 + i * 10, fx + j * 6 + 5, GROUND - 91 + i * 10, col)
-            end
-        end
-        ui.rectfill(fx - 30, GROUND - 120, fx + 42, GROUND - 102, C(0xac3232))
-        ui.print("CHEGADA", fx - 15, GROUND - 115, C(0xffffff))
-    end
-
     -- obstaculos
     for _, o in ipairs(obstacles) do
-        local x = flr(o.x - cam)
+        local x = flr(wrap(o.x - cam, LOOP))
         if x > -30 and x < 500 then
-            -- obstaculos usam amarelo/preto de perigo com contorno preto
-            -- para nao se confundirem com o cenario
-            local K, Y, R = C(0x000000), C(0xfbf236), C(0xac3232)
             if o.kind == "b" then
-                -- barreira de perigo (pular)
-                ui.rectfill(x - 1, GROUND + 1, x + 19, GROUND + 3, K)
-                ui.rectfill(x + 1, GROUND - 23, x + 5, GROUND, K)
-                ui.rectfill(x + 13, GROUND - 23, x + 17, GROUND, K)
-                ui.rectfill(x + 2, GROUND - 22, x + 4, GROUND, R)
-                ui.rectfill(x + 14, GROUND - 22, x + 16, GROUND, R)
-                ui.rectfill(x - 1, GROUND - 24, x + 19, GROUND - 14, K)
-                for s = 0, 4 do
-                    local col = (s % 2 == 0) and Y or K
-                    ui.rectfill(x + s * 4, GROUND - 23, x + s * 4 + 3, GROUND - 15, col)
-                end
-                -- seta "pule"
-                ui.trisfill(x + 4, GROUND - 30, x + 14, GROUND - 30, x + 9, GROUND - 36, Y)
+                draw_barrier(x, GROUND)
             else
-                -- placa de perigo suspensa (deslizar por baixo)
-                ui.rectfill(x + 8, 0, x + 13, GROUND - 60, K)
-                ui.rectfill(x + 9, 0, x + 12, GROUND - 60, R)
-                ui.rectfill(x - 4, GROUND - 62, x + 26, GROUND - 15, K)
-                ui.rectfill(x - 2, GROUND - 60, x + 24, GROUND - 17, Y)
-                ui.rectfill(x + 1, GROUND - 57, x + 21, GROUND - 20, R)
-                ui.print(P.tag, x + 3, GROUND - 52, C(0xffffff))
-                -- seta "deslize"
-                ui.trisfill(x + 4, GROUND - 38, x + 18, GROUND - 38, x + 11, GROUND - 26, C(0xffffff))
+                draw_hsign(x, GROUND, P.tag)
             end
         end
     end
 
-    -- cartoes coletaveis
+    -- cartoes
     for i, c in ipairs(cards) do
         if not c.got then
-            local x = c.x - cam
+            local x = wrap(c.x - cam, LOOP)
             if x > -30 and x < 510 then
                 local bob = math.sin((Frame_now + i * 7) * 0.12) * 2
-                P.draw_card(x, c.y + bob)
+                c.draw(x, c.y + bob)
             end
         end
     end
 end
 
 local function draw_player(frame)
-    if p.inv > 0 and flr(p.inv / 4) % 2 == 0 then return end
-    local x = PLAYER_X
     local y = flr(p.y)
-    if p.slide > 0 then
-        ui.rectfill(x, y - 10, x + 22, y, C(0x306082))
-        ui.rectfill(x + 16, y - 12, x + 24, y - 4, C(0xeec39a))
-        ui.rectfill(x + 16, y - 13, x + 24, y - 10, C(0x663931))
-    else
-        local leg = (p.onground and flr(frame / 6) % 2 == 0) and 2 or 0
-        ui.rectfill(x + 1, y - 8, x + 4, y - leg, C(0x306082))
-        ui.rectfill(x + 7, y - 8, x + 10, y - 2 + leg, C(0x306082))
-        ui.rectfill(x, y - 20, x + 11, y - 8, C(0x99e550))
-        ui.rectfill(x + 2, y - 26, x + 11, y - 20, C(0xeec39a))
-        ui.rectfill(x + 1, y - 28, x + 11, y - 25, C(0x663931))
-        ui.rectfill(x + 8, y - 24, x + 9, y - 23, C(0x000000))
+    local slide = p.slide > 0
+    if p.beam > 0 then
+        local cy = slide and y - 7 or y - 16
+        draw_beam(0, PLAYER_X - 4, cy, frame)
+    end
+    if not (p.inv > 0 and flr(p.inv / 4) % 2 == 0) then
+        draw_runner(PLAYER_X, y, slide, p.onground and frame or 0)
+    end
+    if p.shield > 0 then draw_shield(PLAYER_X, y, slide) end
+end
+
+local function draw_bosses(frame)
+    for i, b in ipairs(bosses) do
+        local x = flr(b.sx)
+        if x > -40 then
+            local y = GROUND - flr(math.abs(math.sin(frame * 0.3 + i)) * 3)
+            if not (b.flash > 0 and flr(b.flash / 2) % 2 == 0) then
+                b.def.draw(x, y, frame)
+            end
+            if b.dead then
+                ui.print("KO", x + 2, GROUND - 64, C(0xffffff))
+            elseif b.timer <= 40 and state == "run" and flr(frame / 4) % 2 == 0 then
+                ui.print("!", x + 7, GROUND - 64, C(0xac3232))
+            end
+        end
+    end
+    for _, s in ipairs(shots) do
+        bosses[s.owner].def.shot(s.x, s.y, s.dir)
     end
 end
 
-local function draw_chaser(frame)
-    local target = PLAYER_X - 28 - chaser.gap * 110
-    if state == "caught" then target = PLAYER_X - 12 end
-    chaser.sx = chaser.sx + (target - chaser.sx) * 0.1
-    local y = GROUND - flr(math.abs(math.sin(frame * 0.3)) * 3)
-    P.draw_chaser(flr(chaser.sx), y, frame)
+local function bar(x, y, w, frac, fg)
+    ui.rectfill(x, y, x + w, y + 4, C(0x222034))
+    if frac > 0 then ui.rectfill(x, y, x + flr(w * frac), y + 4, fg) end
 end
 
-local function draw_hud()
-    -- cartoes
-    P.draw_card(24, 16)
-    ui.print("x " .. collected, 48, 12, C(0xffffff))
+local function draw_hud(frame)
+    -- cartoes coletados
+    P.draw_card(22, 12)
+    ui.print("x " .. collected, 40, 8, C(0xffffff))
 
-    -- barra de progresso
-    local bx0, bx1 = 140, 460
-    ui.rectfill(bx0, 10, bx1, 13, C(0x222034))
-    local prog = ui.mid(0, p.x / FINISH, 1)
-    ui.rectfill(bx0, 10, bx0 + flr((bx1 - bx0) * prog), 13, C(0x6abe30))
-    ui.rectfill(bx1 - 2, 4, bx1, 16, C(0xffffff))
+    -- energia do kamehameha
+    ui.print("KAME", 8, 24, C(0xffffff))
+    local full = energy >= ENERGY_MAX
+    local ecol = (full and flr(frame / 8) % 2 == 0) and C(0xffffff) or C(0x5fcde4)
+    bar(40, 25, 80, energy / ENERGY_MAX, ecol)
+    if full then ui.print("G/DIREITA!", 126, 24, C(0x5fcde4)) end
 
-    -- distancia do presidente
-    ui.print(P.chaser, 140, 20, C(0xffffff))
-    local bx = 140 + (#P.chaser + 1) * FONT_W
-    ui.rectfill(bx, 21, bx + 80, 25, C(0x222034))
-    local col = chaser.gap < 0.5 and C(0xac3232) or C(0xfbf236)
-    ui.rectfill(bx, 21, bx + flr(80 * chaser.gap), 25, col)
+    -- distancia dos chefes
+    ui.print("FUGA", 8, 36, C(0xffffff))
+    bar(40, 37, 80, gap, gap < 0.5 and C(0xac3232) or C(0xfbf236))
+
+    -- vida dos chefes
+    local multi = #bosses > 1
+    for i, b in ipairs(bosses) do
+        local col = multi and (i - 1) % 2 or 0
+        local row = multi and flr((i - 1) / 2) or 0
+        local x = 200 + col * 140
+        local y = 8 + row * 12
+        local name = b.def.name
+        ui.print(name, x, y, b.dead and C(0x847e87) or C(0xffffff))
+        local bx = x + (#name + 1) * FONT_W
+        local bw = (multi and x + 134 or 466) - bx
+        bar(bx, y + 1, bw, b.hp / P.hp, C(0xac3232))
+    end
 
     -- aviso de inicio de fase
-    if runT < 120 then
-        local s = "FASE " .. phase .. ": " .. P.country
-        ui.rectfill(cx(s) - 8, 50, 480 - cx(s) + 8, 66, C(0x222034))
-        ui.print(s, cx(s), 55, C(0xfbf236))
+    if runT < 150 then
+        local s = phase_name(phase)
+        local s2 = "CHEFE: " .. boss_names()
+        local bx = math.min(cx(s), cx(s2)) - 8
+        ui.rectfill(bx, 54, 480 - bx, 84, C(0x222034))
+        ui.print(s, cx(s), 59, C(0xfbf236))
+        ui.print(s2, cx(s2), 73, C(0xffffff))
+    end
+    if p.won and flr(frame / 10) % 2 == 0 then
+        local s = #bosses > 1 and "CHEFES DERROTADOS!" or "CHEFE DERROTADO!"
+        ui.print(s, cx(s), 96, C(0xfbf236))
     end
 end
 
-local function panel(lines)
-    ui.rectfill(90, 50, 390, 200, C(0x222034))
-    ui.rect(90, 50, 390, 200, C(0xffffff))
+local function panel(lines, y0)
+    y0 = y0 or 50
+    local y1 = y0 + #lines * 14 + 12
+    ui.rectfill(70, y0, 410, y1, C(0x222034))
+    ui.rect(70, y0, 410, y1, C(0xffffff))
     for i, ln in ipairs(lines) do
-        ui.print(ln[1], cx(ln[1]), 62 + (i - 1) * 16, C(ln[2]))
+        ui.print(ln[1], cx(ln[1]), y0 + 8 + (i - 1) * 14, C(ln[2]))
+    end
+end
+
+-- ===================================================================
+-- Tela de como jogar (uma pagina por botao)
+-- ===================================================================
+local HOWTO = {
+    { title = "PULAR", keys = { "Z", "CIMA" }, demo = "jump",
+      text = { "PULE AS BARREIRAS AMARELAS", "E PEGUE OS CARTOES NO ALTO." } },
+    { title = "DESLIZAR", keys = { "X", "BAIXO" }, demo = "slide",
+      text = { "DESLIZE POR BAIXO DAS PLACAS.", "TAMBEM SERVE PARA DESVIAR DOS TIROS." } },
+    { title = "REFLETIR", keys = { "F", "ESQUERDA" }, demo = "reflect",
+      text = { "QUANDO O TIRO DO CHEFE CHEGAR, APERTE", "PARA DEVOLVER E TIRAR VIDA DELE." } },
+    { title = "KAMEHAMEHA", keys = { "G", "DIREITA" }, demo = "kame",
+      text = { "JUNTE 10 CARTOES PARA CARREGAR.", "O RAIO CAUSA 3X MAIS DANO!" } },
+    { title = "OBJETIVO", keys = {}, demo = "goal",
+      text = { "O MAPA SE REPETE ATE O CHEFE CAIR.", "DERROTE O CHEFE PARA PASSAR DE FASE.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
+}
+
+local function draw_demo(kind, frame)
+    local bx0, by0, bx1, by1 = 100, 128, 380, 206
+    local gy = by1 - 8
+    ui.clip(bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1)
+    ui.rectfill(bx0, by0, bx1, by1, C(0x639bff))
+    ui.rectfill(bx0, gy, bx1, by1, C(0x595652))
+
+    if kind == "jump" then
+        local t = frame % 100
+        local ox = 390 - t * 3
+        local u = (ox - 203) / 34
+        local h = math.max(0, 1 - u * u) * 44
+        draw_barrier(ox, gy)
+        draw_runner(200, gy - h, false, h > 0 and 0 or frame)
+    elseif kind == "slide" then
+        local t = frame % 100
+        local ox = 390 - t * 3
+        draw_hsign(ox, gy, "USA")
+        draw_runner(200, gy, ox > 165 and ox < 225, frame)
+    elseif kind == "reflect" then
+        local t = frame % 90
+        draw_trump(130, gy, frame)
+        if t < 40 then
+            draw_tomahawk(150 + t * 2.6, gy - 18, 1)
+        elseif t < 70 then
+            draw_tomahawk(254 - (t - 40) * 4, gy - 18, -1)
+        end
+        draw_runner(262, gy, false, frame)
+        if t >= 34 and t < 48 then
+            draw_shield(262, gy, false)
+            ui.print("F!", 258, by0 + 6, C(0xffffff))
+        end
+        if t >= 66 and t < 80 then ui.print("-1", 132, by0 + 6, C(0xac3232)) end
+    elseif kind == "kame" then
+        local t = frame % 120
+        draw_trump(130, gy, frame)
+        draw_runner(280, gy, false, frame)
+        if t < 50 then
+            bar(262, by0 + 8, 40, t / 50, C(0x5fcde4))
+            draw_green_card(240 + (t % 25) * 2, gy - 40)
+        elseif t < 86 then
+            draw_beam(100, 276, gy - 16, frame)
+            ui.print("G!", 276, by0 + 6, C(0xffffff))
+            ui.print("-3", 132, by0 + 6, C(0xac3232))
+        end
+    else
+        draw_trump(110, gy, frame)
+        draw_lula(140, gy, frame)
+        draw_xi(170, gy, frame)
+        draw_kim(200, gy, frame)
+        draw_runner(290, gy, false, frame)
+        draw_green_card(330, gy - 12)
+        draw_bolsa_card(356, gy - 46)
+    end
+    ui.clip(0, 0, 480, 270)
+    ui.rect(bx0, by0, bx1, by1, C(0xffffff))
+end
+
+local function draw_howto(frame)
+    local pg = HOWTO[howto_page]
+    ui.rectfill(40, 20, 440, 240, C(0x222034))
+    ui.rect(40, 20, 440, 240, C(0xfbf236))
+    local s = "COMO JOGAR  " .. howto_page .. "/" .. #HOWTO
+    ui.print(s, cx(s), 28, C(0x847e87))
+    ui.print(pg.title, cx(pg.title), 44, C(0xfbf236))
+
+    -- teclas
+    if #pg.keys > 0 then
+        local parts = {}
+        local total = 0
+        for i, k in ipairs(pg.keys) do
+            local w = #k * FONT_W + 10
+            parts[i] = w
+            total = total + w + (i > 1 and 30 or 0)
+        end
+        local x = flr(240 - total / 2)
+        for i, k in ipairs(pg.keys) do
+            if i > 1 then
+                ui.print("OU", x + 9, 63, C(0x847e87))
+                x = x + 30
+            end
+            ui.rectfill(x, 58, x + parts[i], 74, C(0xffffff))
+            ui.rectfill(x + 1, 72, x + parts[i] - 1, 74, C(0x9badb7))
+            ui.print(k, x + 5, 62, C(0x000000))
+            x = x + parts[i]
+        end
+    end
+
+    for i, ln in ipairs(pg.text) do
+        ui.print(ln, cx(ln), 82 + (i - 1) * 12, C(0xffffff))
+    end
+
+    draw_demo(pg.demo, frame)
+
+    local last = howto_page == #HOWTO
+    local foot = last and (howto_then == "play" and "Z: JOGAR!   X: VOLTAR" or "Z: MENU   X: VOLTAR")
+        or "Z: PROXIMO   X: VOLTAR"
+    if flr(frame / 30) % 2 == 0 or not last then
+        ui.print(foot, cx(foot), 222, C(0xcbdbfc))
+    end
+end
+
+local function update_howto()
+    if ui.btnp(BTN_Z) then
+        if howto_page < #HOWTO then
+            howto_page = howto_page + 1
+        elseif howto_then == "play" then
+            scores = {}
+            single = false
+            start_phase(1)
+        else
+            go_title()
+        end
+    elseif ui.btnp(BTN_X) then
+        if howto_page > 1 then
+            howto_page = howto_page - 1
+        else
+            go_title()
+        end
     end
 end
 
@@ -725,53 +1200,58 @@ end
 -- Menu inicial
 -- ===================================================================
 local function menu_items()
-    local items = { { label = "JOGAR TODAS AS FASES", phase = 0 } }
+    local items = {
+        { label = "JOGAR", action = "play" },
+        { label = "COMO JOGAR", action = "howto" },
+    }
     for n, ph in ipairs(PHASES) do
-        items[#items + 1] = { label = "FASE " .. n .. " - " .. ph.country, phase = n, locked = not unlocked }
+        local label = ph.final and "FASE FINAL - O MUNDO" or ("FASE " .. n .. " - " .. ph.country)
+        items[#items + 1] = { label = label, phase = n, locked = not unlocked }
     end
     return items
 end
 
 local function update_title()
     local items = menu_items()
-    local count = unlocked and #items or 1
+    local count = unlocked and #items or 2
     if ui.btnp(DOWN) then menu_sel = menu_sel % count + 1 end
     if ui.btnp(UP) then menu_sel = (menu_sel - 2) % count + 1 end
     if ui.btnp(BTN_Z) then
         local it = items[menu_sel]
-        scores = {}
-        single = it.phase > 0
-        start_phase(single and it.phase or 1)
+        if it.phase then
+            scores = {}
+            single = true
+            start_phase(it.phase)
+        else
+            state = "howto"
+            howto_page = 1
+            howto_then = it.action == "play" and "play" or "menu"
+        end
     end
 end
 
 local function draw_title(frame)
     local K = C(0x222034)
-
-    -- titulo
-    ui.rectfill(110, 20, 370, 60, K)
-    ui.rect(110, 20, 370, 60, C(0xfbf236))
+    ui.rectfill(110, 14, 370, 52, K)
+    ui.rect(110, 14, 370, 52, C(0xfbf236))
     local t = "TRUMP'S RUN"
-    ui.print(t, cx(t), 30, C(0xfbf236))
+    ui.print(t, cx(t), 23, C(0xfbf236))
     t = "FUJA DOS PRESIDENTES PELO MUNDO"
-    ui.print(t, cx(t), 44, C(0xffffff))
+    ui.print(t, cx(t), 37, C(0xffffff))
 
-    -- opcoes
     local items = menu_items()
-    local y0 = 74
-    local y1 = y0 + #items * 16 + (unlocked and 8 or 22)
-    ui.rectfill(130, y0, 350, y1, K)
-    ui.rect(130, y0, 350, y1, C(0xffffff))
+    local y0 = 60
+    local y1 = y0 + #items * 14 + (unlocked and 8 or 22)
+    ui.rectfill(120, y0, 350, y1, K)
+    ui.rect(120, y0, 350, y1, C(0xffffff))
     for i, it in ipairs(items) do
-        local y = y0 + 8 + (i - 1) * 16
+        local y = y0 + 8 + (i - 1) * 14
         local col = C(0xffffff)
         if it.locked then
             col = C(0x847e87)
         elseif i == menu_sel then
             col = C(0xfbf236)
-            if flr(frame / 15) % 2 == 0 then
-                ui.print(">", 140, y, col)
-            end
+            if flr(frame / 15) % 2 == 0 then ui.print(">", 128, y, col) end
         end
         ui.print(it.label, cx(it.label), y, col)
     end
@@ -780,20 +1260,75 @@ local function draw_title(frame)
         ui.print(t, cx(t), y1 - 14, C(0xd77bba))
     end
 
-    -- os presidentes esperando a corrida
-    draw_trump(330, GROUND, frame)
-    draw_lula(370, GROUND, frame)
-    draw_xi(410, GROUND, frame)
+    draw_trump(362, GROUND, frame)
+    draw_lula(390, GROUND, frame)
+    draw_xi(418, GROUND, frame)
+    draw_kim(450, GROUND, frame)
 
-    -- controles na estrada
-    t = "Z/CIMA: PULAR   X/BAIXO: DESLIZAR   Z: ESCOLHER"
+    t = "CIMA/BAIXO: ESCOLHER   Z: CONFIRMAR"
     ui.print(t, cx(t), GROUND + 8, C(0xffffff))
+end
+
+-- ===================================================================
+-- Cenario final (depois de vencer todos)
+-- ===================================================================
+local function draw_lying(x, body, hair, skin)
+    ui.rectfill(x, GROUND - 8, x + 24, GROUND, body)
+    ui.rectfill(x + 24, GROUND - 10, x + 34, GROUND, skin)
+    ui.rectfill(x + 34, GROUND - 10, x + 38, GROUND, hair)
+end
+
+local function draw_ending(frame)
+    REGION_SKY = 0x222034
+    ui.cls(C(0x222034))
+    for i = 0, 25 do
+        ui.rectfill((i * 97) % 480, (i * 53) % 150, (i * 97) % 480, (i * 53) % 150, C(0xffffff))
+    end
+
+    -- fogos de artificio
+    local cols = { 0xfbf236, 0xd77bba, 0x5fcde4, 0x6abe30, 0xdf7126 }
+    for i = 0, 4 do
+        local t = (frame + i * 23) % 70
+        local fx = 50 + i * 95
+        local fy = 170 - (i * 29) % 50 - 100
+        if t < 40 then
+            ui.circ(fx, fy, t, C(cols[i + 1]))
+            ui.circ(fx, fy, flr(t / 2), C(cols[(i + 2) % 5 + 1]))
+        end
+    end
+
+    -- todos os cenarios juntos
+    lm_liberty(40)
+    lm_rio(140)
+    lm_pequim(300)
+    lm_pyongyang(440)
+
+    ui.rectfill(0, GROUND, 480, 270, C(0x595652))
+    ui.rectfill(0, GROUND, 480, GROUND + 3, C(0x847e87))
+
+    -- podio com o heroi
+    ui.rectfill(222, GROUND - 22, 262, GROUND, C(0xd9a066))
+    ui.print("1", 239, GROUND - 16, C(0x000000))
+    draw_runner(236, GROUND - 22, false, 0)
+    ui.rectfill(238, GROUND - 46, 246, GROUND - 38, C(0xfbf236))
+    ui.rectfill(241, GROUND - 38, 243, GROUND - 33, C(0xfbf236))
+
+    -- presidentes nocauteados
+    draw_lying(40, C(0x3f3f74), C(0xfbf236), C(0xd9a066))
+    draw_lying(110, C(0xac3232), C(0x8a6f30), C(0xeec39a))
+    draw_lying(300, C(0x306082), C(0x000000), C(0xeec39a))
+    draw_lying(370, C(0x323c39), C(0x000000), C(0xeec39a))
+    for _, x in ipairs({ 40, 110, 300, 370 }) do
+        local a = frame * 0.15
+        ui.print("*", x + 30 + flr(math.cos(a) * 8), GROUND - 22 + flr(math.sin(a) * 3), C(0xfbf236))
+    end
 end
 
 -- ===================================================================
 -- Loop principal
 -- ===================================================================
 Frame_now = 0
+go_title()
 
 function loop(frame)
     Frame_now = frame
@@ -808,10 +1343,19 @@ function loop(frame)
 
     if state == "title" then
         update_title()
+    elseif state == "howto" then
+        update_howto()
     elseif state == "run" then
         update_run()
     else
         endT = endT + 1
+        if state == "caught" then
+            for i, b in ipairs(bosses) do
+                if not b.dead then
+                    b.sx = b.sx + (PLAYER_X - 12 - (i - 1) * 10 - b.sx) * 0.1
+                end
+            end
+        end
         if endT > 30 then
             if ui.btnp(BTN_Z) then
                 if state == "clear" then
@@ -819,7 +1363,7 @@ function loop(frame)
                 elseif state == "win" then
                     go_title()
                 else
-                    start_phase(phase)   -- pego: tenta a mesma fase de novo
+                    start_phase(phase)
                 end
             elseif ui.btnp(BTN_X) and state == "caught" then
                 go_title()
@@ -827,60 +1371,69 @@ function loop(frame)
         end
     end
 
-    local cam = p.x - PLAYER_X
-    draw_world(cam)
-    if state ~= "title" then
-        draw_chaser(frame)
+    local blink = flr(frame / 30) % 2 == 0
+    local ending = state == "win" and not single
+
+    if state == "title" or state == "howto" then
+        local cam = frame * 1.5
+        draw_world(cam, cam, true)
+    elseif ending then
+        draw_ending(frame)
+    else
+        draw_world(p.x - PLAYER_X, p.dist, false)
+        draw_bosses(frame)
         draw_player(frame)
-        draw_hud()
+        draw_hud(frame)
     end
 
-    local blink = flr(frame / 30) % 2 == 0
     if state == "title" then
         draw_title(frame)
+    elseif state == "howto" then
+        draw_howto(frame)
     elseif state == "clear" then
         local nxt = PHASES[phase + 1]
+        local who = #nxt.bosses > 1 and "TODOS OS PRESIDENTES JUNTOS!" or ("CUIDADO COM O " .. BOSS_DEFS[nxt.bosses[1]].name .. "!")
         panel({
-            { P.finish, 0x6abe30 },
+            { "VOCE DERROTOU O " .. boss_names() .. "!", 0x6abe30 },
             { "", 0xffffff },
-            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
-            { "PONTUACAO: " .. collected * 100, 0xffffff },
+            { P.card .. ": " .. collected, 0xfbf236 },
+            { "PONTUACAO: " .. (collected * 100 + 1000), 0xffffff },
             { "", 0xffffff },
-            { "PROXIMA FASE: " .. nxt.country, 0xffffff },
-            { "CUIDADO COM O " .. nxt.chaser .. "!", 0xac3232 },
+            { "PROXIMA: " .. phase_name(phase + 1), 0xffffff },
+            { who, 0xac3232 },
             { "", 0xffffff },
             { blink and "APERTE Z PARA CONTINUAR" or "", 0xcbdbfc },
         })
     elseif state == "win" and single then
         panel({
-            { P.finish, 0x6abe30 },
+            { "VOCE DERROTOU " .. (#bosses > 1 and "" or "O ") .. boss_names() .. "!", 0x6abe30 },
             { "", 0xffffff },
-            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
-            { "PONTUACAO: " .. collected * 100, 0xffffff },
+            { P.card .. ": " .. collected, 0xfbf236 },
+            { "PONTUACAO: " .. (collected * 100 + #bosses * 1000), 0xffffff },
             { "", 0xffffff },
             { blink and "APERTE Z PARA VOLTAR AO MENU" or "", 0xcbdbfc },
         })
     elseif state == "win" then
-        local lines = { { "VOCE ESCAPOU DE TODOS!", 0x6abe30 }, { "", 0xffffff } }
+        local lines = { { "VOCE DERROTOU TODOS OS PRESIDENTES!", 0x6abe30 } }
         local total = 0
         for i, ph in ipairs(PHASES) do
             local s = scores[i]
             if s then
-                total = total + s.got
-                lines[#lines + 1] = { ph.country .. " - " .. ph.card .. ": " .. s.got .. " / " .. s.total, 0xfbf236 }
+                total = total + s.cards * 100 + s.bosses * 1000
+                lines[#lines + 1] = { ph.country .. " - " .. ph.card .. ": " .. s.cards, 0xfbf236 }
             end
         end
-        lines[#lines + 1] = { "PONTUACAO TOTAL: " .. total * 100, 0xffffff }
+        lines[#lines + 1] = { "PONTUACAO TOTAL: " .. total, 0xffffff }
         lines[#lines + 1] = { "FASES LIBERADAS NO MENU!", 0xd77bba }
-        lines[#lines + 1] = { "", 0xffffff }
         lines[#lines + 1] = { blink and "APERTE Z PARA VOLTAR AO MENU" or "", 0xcbdbfc }
-        panel(lines)
+        panel(lines, 8)
     elseif state == "caught" and endT > 40 then
+        local who = #bosses > 1 and "OS PRESIDENTES TE PEGARAM!" or ("O " .. boss_names() .. " TE PEGOU!")
         panel({
-            { "O " .. P.chaser .. " TE PEGOU!", 0xac3232 },
+            { who, 0xac3232 },
             { "", 0xffffff },
             { "LOCAL: " .. REGIONS[region_at(p.x)].name, 0xffffff },
-            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
+            { P.card .. ": " .. collected, 0xfbf236 },
             { "", 0xffffff },
             { blink and "Z: TENTAR DE NOVO" or "", 0xcbdbfc },
             { "X: VOLTAR AO MENU", 0xcbdbfc },
