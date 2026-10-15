@@ -41,6 +41,31 @@ local function draw_green_card(x, y)
     ui.line(x + 1, y + 2, x + 4, y + 2, C(0x4b692f))
 end
 
+-- fonte minuscula 3x5 (o ui.print nao permite mudar o tamanho)
+local TINY = {
+    B = { "110", "101", "110", "101", "110" },
+    O = { "111", "101", "101", "101", "111" },
+    L = { "100", "100", "100", "100", "111" },
+    S = { "111", "100", "111", "001", "111" },
+    A = { "010", "101", "111", "101", "101" },
+}
+
+local function draw_tiny(text, x, y, col)
+    for i = 1, #text do
+        local glyph = TINY[text:sub(i, i)]
+        if glyph then
+            for r = 1, 5 do
+                for c = 1, 3 do
+                    if glyph[r]:sub(c, c) == "1" then
+                        local px, py = x + (i - 1) * 4 + c - 1, y + r - 1
+                        ui.rectfill(px, py, px, py, col)
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function draw_bolsa_card(x, y)
     -- cartao azul com faixas verde/amarela e a palavra BOLSA
     x, y = flr(x), flr(y)
@@ -48,20 +73,22 @@ local function draw_bolsa_card(x, y)
     ui.rectfill(x - 13, y + 4, x + 13, y + 4, C(0x6abe30))
     ui.rectfill(x - 13, y + 5, x + 13, y + 6, C(0xfbf236))
     ui.rect(x - 13, y - 6, x + 13, y + 6, C(0x3f3f74))
-    ui.print("BOLSA", x - 11, y - 4, C(0xffffff))
+    draw_tiny("BOLSA", x - 9, y - 4, C(0xffffff))
 end
 
 -- ===================================================================
 -- Perseguidores (bem simples: retangulos)
 -- ===================================================================
-local function draw_trump(x, y)
+local function draw_trump(x, y, frame)
     -- terno, gravata, rosto e topete amarelo
     ui.rectfill(x, y - 30, x + 16, y, C(0x3f3f74))
     ui.rectfill(x + 7, y - 22, x + 9, y - 10, C(0xac3232))
     ui.rectfill(x + 2, y - 40, x + 16, y - 30, C(0xd9a066))
     ui.rectfill(x + 12, y - 37, x + 13, y - 36, C(0x000000))
-    ui.rectfill(x, y - 46, x + 14, y - 40, C(0xfbf236))
-    ui.trisfill(x + 10, y - 46, x + 21, y - 43, x + 10, y - 40, C(0xfbf236))
+    -- topete balanca para cima e para baixo enquanto corre
+    local h = flr(math.sin(frame * 0.4) * 3)
+    ui.rectfill(x, y - 46 + h, x + 14, y - 40, C(0xfbf236))
+    ui.trisfill(x + 10, y - 46 + h, x + 21, y - 43 + h, x + 10, y - 40, C(0xfbf236))
 end
 
 local function draw_lula(x, y)
@@ -552,7 +579,7 @@ local function draw_chaser(frame)
     if state == "caught" then target = PLAYER_X - 12 end
     chaser.sx = chaser.sx + (target - chaser.sx) * 0.1
     local y = GROUND - flr(math.abs(math.sin(frame * 0.3)) * 3)
-    P.draw_chaser(flr(chaser.sx), y)
+    P.draw_chaser(flr(chaser.sx), y, frame)
 end
 
 local function draw_hud()
