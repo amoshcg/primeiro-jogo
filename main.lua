@@ -48,6 +48,9 @@ local TINY = {
     L = { "100", "100", "100", "100", "111" },
     S = { "111", "100", "111", "001", "111" },
     A = { "010", "101", "111", "101", "101" },
+    ["+"] = { "000", "010", "111", "010", "000" },
+    ["1"] = { "010", "110", "010", "010", "111" },
+    ["0"] = { "111", "101", "101", "101", "111" },
 }
 
 local function draw_tiny(text, x, y, col)
@@ -64,6 +67,16 @@ local function draw_tiny(text, x, y, col)
             end
         end
     end
+end
+
+local function draw_credit_card(x, y)
+    -- cartao vermelho do social credit score: estrela amarela e +100
+    x, y = flr(x), flr(y)
+    ui.rectfill(x - 13, y - 6, x + 13, y + 6, C(0xac3232))
+    ui.rect(x - 13, y - 6, x + 13, y + 6, C(0x000000))
+    ui.trisfill(x - 11, y - 1, x - 3, y - 1, x - 7, y - 5, C(0xfbf236))
+    ui.trisfill(x - 11, y - 1, x - 3, y - 1, x - 7, y + 3, C(0xfbf236))
+    draw_tiny("+100", x - 1, y - 2, C(0xffffff))
 end
 
 local function draw_bolsa_card(x, y)
@@ -89,6 +102,17 @@ local function draw_trump(x, y, frame)
     local h = flr(math.sin(frame * 0.4) * 3)
     ui.rectfill(x, y - 46 + h, x + 14, y - 40, C(0xfbf236))
     ui.trisfill(x + 10, y - 46 + h, x + 21, y - 43 + h, x + 10, y - 40, C(0xfbf236))
+end
+
+local function draw_xi(x, y)
+    -- terno azul, gravata vermelha, rosto e cabelo preto penteado
+    ui.rectfill(x, y - 30, x + 16, y, C(0x306082))
+    ui.rectfill(x + 6, y - 30, x + 10, y - 26, C(0xffffff))
+    ui.rectfill(x + 7, y - 26, x + 9, y - 10, C(0xac3232))
+    ui.rectfill(x + 2, y - 41, x + 16, y - 30, C(0xeec39a))
+    ui.rectfill(x + 12, y - 37, x + 13, y - 36, C(0x000000))
+    ui.rectfill(x + 1, y - 45, x + 16, y - 40, C(0x000000))
+    ui.rectfill(x + 1, y - 40, x + 3, y - 35, C(0x000000))
 end
 
 local function draw_lula(x, y)
@@ -212,6 +236,55 @@ local function lm_amazonia(x)
     end
 end
 
+local function lm_pequim(x)
+    -- Cidade Proibida: predio vermelho com telhados dourados
+    ui.rectfill(x - 10, g - 20, x + 130, g, C(0x8f563b))
+    ui.rectfill(x + 10, g - 50, x + 110, g - 20, C(0xac3232))
+    ui.trisfill(x - 4, g - 50, x + 124, g - 50, x + 60, g - 70, C(0xd9a066))
+    ui.rectfill(x + 30, g - 82, x + 90, g - 70, C(0xac3232))
+    ui.trisfill(x + 20, g - 82, x + 100, g - 82, x + 60, g - 96, C(0xd9a066))
+    ui.rectfill(x + 52, g - 40, x + 68, g - 20, C(0x222034))
+end
+
+local function lm_muralha(x)
+    -- Grande Muralha sobre os morros
+    ui.circfill(x + 60, g + 60, 110, C(0x4b692f))
+    ui.rectfill(x - 40, g - 34, x + 160, g - 24, C(0x847e87))
+    for k = 0, 24 do
+        if k % 2 == 0 then
+            ui.rectfill(x - 40 + k * 8, g - 38, x - 34 + k * 8, g - 34, C(0x847e87))
+        end
+    end
+    for _, tx in ipairs({ -20, 60, 140 }) do
+        ui.rectfill(x + tx, g - 56, x + tx + 18, g - 24, C(0x9badb7))
+        ui.rectfill(x + tx + 6, g - 48, x + tx + 11, g - 40, C(0x222034))
+    end
+end
+
+local function lm_xangai(x)
+    -- Torre Oriental Pearl e arranha-ceus
+    ui.rectfill(x - 2, g - 150, x + 2, g, C(0x9badb7))
+    ui.circfill(x, g - 40, 14, C(0xd77bba))
+    ui.circfill(x, g - 100, 10, C(0xd77bba))
+    ui.circfill(x, g - 130, 5, C(0xd77bba))
+    ui.rectfill(x + 50, g - 140, x + 74, g, C(0x5b6ee1))
+    ui.trisfill(x + 50, g - 140, x + 74, g - 140, x + 74, g - 160, C(0x5b6ee1))
+    ui.rectfill(x + 90, g - 110, x + 110, g, C(0x847e87))
+end
+
+local function lm_hongkong(x)
+    -- predios iluminados a noite
+    for k = 0, 3 do
+        local bx = x + k * 50
+        local h = 80 + (k * 37) % 60
+        ui.rectfill(bx, g - h, bx + 34, g, C(0x3f3f74))
+        for yy = g - h + 8, g - 12, 10 do
+            ui.rectfill(bx + 5, yy, bx + 29, yy + 3, C(0x5fcde4))
+        end
+    end
+    ui.trisfill(x + 200, g, x + 240, g, x + 230, g - 150, C(0x9badb7))
+end
+
 -- ===================================================================
 -- Fases (paises). Mapa estatico de cada pais:
 --   .  vazio
@@ -245,6 +318,18 @@ local PHASES = {
             { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "....b..h.ccc..b..b..a.a..h..h..B...cc.." },
             { name = "BRASILIA",       sky = 0x5fcde4, lm = lm_brasilia, map = "....h..b..ccc..B..h..b..h..a..b..b..ccc." },
             { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "....h..b.ccc..h..B..b..h..a.a..b..ccc......", forest = true },
+        },
+    },
+    {
+        country = "CHINA", chaser = "XI JINPING", card = "SOCIAL CREDIT", tag = "CN",
+        finish = "VOCE ESCAPOU DA CHINA!",
+        draw_card = draw_credit_card, card_w = 14, card_h = 7,
+        draw_chaser = draw_xi,
+        regions = {
+            { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,   map = "......c.c.c...h..b..ccc..B..h..b..a.a..h.." },
+            { name = "GRANDE MURALHA", sky = 0x639bff, lm = lm_muralha,  map = "....b..b..ccc..h..h..B..b..a..h..b..cc." },
+            { name = "XANGAI",         sky = 0x9badb7, lm = lm_xangai,   map = "....h..b.ccc..h..B..b..h..a.a..b..h..ccc." },
+            { name = "HONG KONG",      sky = 0x222034, lm = lm_hongkong, map = "....b..h..ccc..B..h..b..b..a..h..b..ccc......", night = true },
         },
     },
 }
@@ -668,7 +753,7 @@ function loop(frame)
             { "TRUMP'S RUN", 0xfbf236 },
             { "FASE 1: EUA - FUJA DO TRUMP!", 0xffffff },
             { "FASE 2: BRASIL - FUJA DO LULA!", 0xffffff },
-            { "", 0xffffff },
+            { "FASE 3: CHINA - FUJA DO XI JINPING!", 0xffffff },
             { "CIMA / Z : PULAR", 0xcbdbfc },
             { "BAIXO / X : DESLIZAR", 0xcbdbfc },
             { "COLETE OS CARTOES DE CADA PAIS", 0x6abe30 },
