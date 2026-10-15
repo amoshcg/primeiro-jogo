@@ -501,8 +501,14 @@ local function pressed_jump() return bp(UP) or bp(PAD_X) end
 local function pressed_slide() return bp(DOWN) or bp(PAD_B) end
 local function pressed_reflect() return bp(LEFT) or bp(PAD_Y) end
 local function pressed_kame() return bp(RIGHT) or bp(PAD_A) end
-local function pressed_ok() return bp(PAD_A) end
-local function pressed_back() return bp(PAD_B) end
+local function pressed_ok() return bp(PAD_B) end      -- confirmar no B
+local function pressed_back() return bp(PAD_A) end    -- voltar no A
+
+-- Start/Select nao tem constante no Lupi: usamos o numero do botao no
+-- raylib (GAMEPAD_BUTTON_MIDDLE_RIGHT = 15, MIDDLE_LEFT = 13)
+local PAD_START = START or 15
+local PAD_SELECT = SELECT or 13
+local function pressed_start() return bp(PAD_START) end
 local function holding_slide()
     return ui.btn(DOWN) or (PAD_B ~= nil and ui.btn(PAD_B))
 end
@@ -1363,8 +1369,8 @@ local function draw_howto(frame)
     draw_demo(pg.demo, frame)
 
     local last = howto_page == #howto_list
-    local foot = last and (howto_then == "menu" and "A: MENU   B: VOLTAR" or "A: JOGAR!   B: VOLTAR")
-        or "A: PROXIMO   B: VOLTAR"
+    local foot = last and (howto_then == "menu" and "B: MENU   A: VOLTAR" or "B: JOGAR!   A: VOLTAR")
+        or "B: PROXIMO   A: VOLTAR"
     if flr(frame / 30) % 2 == 0 or not last then
         ui.print(foot, cx(foot), 222, C(0xcbdbfc))
     end
@@ -1413,8 +1419,6 @@ end
 
 local unlock_msg = 0    -- tempo mostrando o aviso de fases liberadas
 
-pad_idle = 0   -- (global) tempo sem apertar nada na tela de teste
-
 local function update_title()
     if unlock_msg > 0 then unlock_msg = unlock_msg - 1 end
 
@@ -1443,7 +1447,6 @@ local function update_title()
             begin_phase(1)
         elseif it.action == "pad" then
             state = "padtest"
-            pad_idle = 0
         else
             show_howto(ALL_HOWTO, "menu")
         end
@@ -1490,7 +1493,7 @@ local function draw_title(frame)
     draw_kim(450, GROUND, frame)
 
     -- controles: setas para escolher, A para confirmar
-    t = ": ESCOLHER   A: CONFIRMAR"
+    t = ": ESCOLHER   B: CONFIRMAR"
     local x = flr(240 - (20 + #t * FONT_W) / 2)
     draw_arrow(x, GROUND + 8, "up", C(0xffffff))
     draw_arrow(x + 10, GROUND + 8, "down", C(0xffffff))
@@ -1503,12 +1506,8 @@ end
 local function held(b) return b ~= nil and ui.btn(b) end
 
 local function update_padtest()
-    local any = false
-    for _, b in ipairs({ LEFT, RIGHT, UP, DOWN, PAD_A, PAD_B, PAD_X, PAD_Y, PAD_L, PAD_R }) do
-        if held(b) then any = true end
-    end
-    pad_idle = any and 0 or pad_idle + 1
-    if pad_idle > 180 then go_title() end   -- 3 s sem apertar nada: volta
+    -- sai com START ou com L + R juntos
+    if pressed_start() or (held(PAD_L) and held(PAD_R)) then go_title() end
 end
 
 local function draw_padtest(frame)
@@ -1530,6 +1529,12 @@ local function draw_padtest(frame)
     ui.circfill(150, 105, 44, C(0xcbdbfc))
     ui.circfill(330, 105, 44, C(0xcbdbfc))
     ui.rectfill(150, 61, 330, 149, C(0xcbdbfc))
+
+    -- select e start
+    ui.rectfill(212, 112, 232, 118, held(PAD_SELECT) and on or C(0x595652))
+    ui.rectfill(248, 112, 268, 118, held(PAD_START) and on or C(0x595652))
+    ui.print("SEL", 213, 122, C(0x595652))
+    ui.print("START", 244, 122, C(0x595652))
 
     -- direcional
     ui.rectfill(142, 83, 158, 127, C(0x595652))
@@ -1555,13 +1560,13 @@ local function draw_padtest(frame)
     -- o que cada botao faz no jogo
     local rows = {
         { "X /", "PULAR", PAD_X, UP, "up" },
-        { "B /", "DESLIZAR / VOLTAR", PAD_B, DOWN, "down" },
+        { "B /", "DESLIZAR / CONFIRMAR", PAD_B, DOWN, "down" },
         { "Y /", "REFLETIR", PAD_Y, LEFT, "left" },
-        { "A /", "KAMEHAMEHA / CONFIRMAR", PAD_A, RIGHT, "right" },
+        { "A /", "KAMEHAMEHA / VOLTAR", PAD_A, RIGHT, "right" },
         { "L / R", "SEM USO", PAD_L, PAD_R },
     }
     for i, r in ipairs(rows) do
-        local y = 160 + (i - 1) * 13
+        local y = 154 + (i - 1) * 12
         local lit = held(r[3]) or held(r[4])
         local col = lit and C(0xfbf236) or C(0x9badb7)
         ui.print(r[1], 110, y, col)
@@ -1569,10 +1574,17 @@ local function draw_padtest(frame)
         ui.print(r[2], 170, y, col)
     end
     t = "TECLADO: W A S D = DIRECIONAL   H=A  K=B  J=X  G=Y"
-    ui.print(t, cx(t), 228, C(0x847e87))
+    ui.print(t, cx(t), 229, C(0x847e87))
 
-    local left = math.max(0, 3 - flr(pad_idle / 60))
-    t = "SEM APERTAR NADA POR 3s VOLTA AO MENU (" .. left .. ")"
+    -- numeros brutos dos botoes apertados (ajuda a descobrir o Start)
+    local ids = {}
+    for id = 0, 20 do
+        if ui.btn(id) then ids[#ids + 1] = tostring(id) end
+    end
+    t = "BOTOES (NUMERO): " .. (#ids > 0 and table.concat(ids, " ") or "-")
+    ui.print(t, cx(t), 216, C(0x5fcde4))
+
+    t = "START OU L+R: VOLTAR AO MENU"
     ui.print(t, cx(t), 242, C(0xcbdbfc))
 end
 
@@ -1655,7 +1667,17 @@ function loop(frame)
     elseif state == "padtest" then
         update_padtest()
     elseif state == "run" then
-        update_run()
+        if pressed_start() then
+            state = "pause"
+        else
+            update_run()
+        end
+    elseif state == "pause" then
+        if pressed_start() or pressed_ok() then
+            state = "run"
+        elseif pressed_back() then
+            go_title()
+        end
     else
         endT = endT + 1
         if state == "caught" then
@@ -1701,6 +1723,15 @@ function loop(frame)
         draw_howto(frame)
     elseif state == "padtest" then
         draw_padtest(frame)
+    elseif state == "pause" then
+        panel({
+            { "PAUSA", 0xfbf236 },
+            { "", 0xffffff },
+            { phase_name(phase), 0xffffff },
+            { "", 0xffffff },
+            { "START OU B: CONTINUAR", 0xcbdbfc },
+            { "A: VOLTAR AO MENU", 0xcbdbfc },
+        }, 70)
     elseif state == "clear" then
         local nxt = PHASES[phase + 1]
         local who
@@ -1722,7 +1753,7 @@ function loop(frame)
             { "PROXIMA: " .. phase_name(phase + 1), 0xffffff },
             { who, 0xac3232 },
             { "", 0xffffff },
-            { blink and "APERTE A PARA CONTINUAR" or "", 0xcbdbfc },
+            { blink and "APERTE B PARA CONTINUAR" or "", 0xcbdbfc },
         })
     elseif state == "win" and single then
         local msg
@@ -1740,7 +1771,7 @@ function loop(frame)
             { P.card .. ": " .. collected, 0xfbf236 },
             { "PONTUACAO: " .. pts, 0xffffff },
             { "", 0xffffff },
-            { blink and "APERTE A PARA VOLTAR AO MENU" or "", 0xcbdbfc },
+            { blink and "APERTE B PARA VOLTAR AO MENU" or "", 0xcbdbfc },
         })
     elseif state == "win" then
         local lines = { { "VOCE DERROTOU TODOS OS PRESIDENTES!", 0x6abe30 } }
@@ -1754,7 +1785,7 @@ function loop(frame)
             end
         end
         lines[#lines + 1] = { "PONTUACAO TOTAL: " .. total, 0xffffff }
-        lines[#lines + 1] = { blink and "APERTE A PARA VOLTAR AO MENU" or "FASES LIBERADAS NO MENU!", 0xcbdbfc }
+        lines[#lines + 1] = { blink and "APERTE B PARA VOLTAR AO MENU" or "FASES LIBERADAS NO MENU!", 0xcbdbfc }
         panel(lines, 4)
     elseif state == "caught" and endT > 40 then
         local who = "O " .. bosses[P.rotate and turn or 1].def.name .. " TE PEGOU!"
@@ -1764,8 +1795,8 @@ function loop(frame)
             { "LOCAL: " .. REGIONS[region_at(p.x)].name, 0xffffff },
             { P.card .. ": " .. collected, 0xfbf236 },
             { "", 0xffffff },
-            { blink and "A: TENTAR DE NOVO" or "", 0xcbdbfc },
-            { "B: VOLTAR AO MENU", 0xcbdbfc },
+            { blink and "B: TENTAR DE NOVO" or "", 0xcbdbfc },
+            { "A: VOLTAR AO MENU", 0xcbdbfc },
         })
     end
 end
