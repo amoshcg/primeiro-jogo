@@ -582,13 +582,13 @@ local PHASES = {
       bosses = { { id = "xi", hp = 6, fire = 160 } } },
 
     { country = "COREIA DO NORTE", card = "VISTOS", tag = "NK", draw_card = draw_visa_card,
-      combat = true, final = true, kame = true, speed = 3.4, shot_speed = 3.2, regions = MAP_COREIA,
+      combat = true, final = true, kame = true, rotate = true, speed = 3.4, shot_speed = 3.2, regions = MAP_COREIA,
       -- Kim e o chefe mais forte: mais vida e atira mais vezes
       bosses = {
-          { id = "kim",   hp = 10, fire = 240 },
-          { id = "xi",    hp = 3,  fire = 420 },
-          { id = "lula",  hp = 3,  fire = 420 },
-          { id = "trump", hp = 3,  fire = 420 },
+          { id = "trump", hp = 3,  fire = 200 },
+          { id = "lula",  hp = 3,  fire = 200 },
+          { id = "xi",    hp = 3,  fire = 190 },
+          { id = "kim",   hp = 10, fire = 160 },
       },
       intro = { "kame", "goal_final" } },
 }
@@ -669,6 +669,10 @@ local collected = 0
 local scores = {}
 local endT = 0
 local runT = 0
+local turn = 1          -- batalha final: presidente da vez
+local turnT = 0         -- tempo do presidente da vez
+local turn_msg = 0      -- tempo mostrando "VEZ DO ..."
+local TURN_TIME = 600   -- cada presidente fica 10 segundos e reveza
 
 local function start_phase(n)
     phase = n
@@ -692,6 +696,7 @@ local function start_phase(n)
     collected = 0
     endT = 0
     runT = 0
+    turn, turnT, turn_msg = 1, 0, 0
     state = "run"
 end
 
@@ -785,11 +790,30 @@ local function finish_phase()
     endT = 0
 end
 
+local function boss_active(i)
+    return not P.rotate or i == turn
+end
+
 local function boss_target(i)
-    if #bosses > 1 then
-        return PLAYER_X - 30 - gap * 60 - (i - 1) * 26
-    end
+    if not boss_active(i) then return -90 end   -- esperando a vez fora da tela
     return PLAYER_X - 28 - gap * 110
+end
+
+-- passa a vez para o proximo presidente vivo
+local function next_turn()
+    for k = 1, #bosses do
+        local i = (turn + k - 1) % #bosses + 1
+        if not bosses[i].dead then
+            if i ~= turn then
+                turn = i
+                turn_msg = 90
+                shots = {}             -- tiros do anterior somem na troca
+                bosses[i].timer = 70   -- tempo para chegar antes de atirar
+            end
+            break
+        end
+    end
+    turnT = 0
 end
 
 local function update_combat()
@@ -803,16 +827,25 @@ local function update_combat()
         p.beam = 36
         energy = 0
         shots = {}
-        for _, b in ipairs(bosses) do damage(b, 3) end
+        for i, b in ipairs(bosses) do
+            if boss_active(i) then damage(b, 3) end
+        end
         gap = math.min(1, gap + 0.3)
     end
     if p.shield > 0 then p.shield = p.shield - 1 end
     if p.shieldCD > 0 then p.shieldCD = p.shieldCD - 1 end
     if p.beam > 0 then p.beam = p.beam - 1 end
 
+    -- revezamento na batalha final
+    if P.rotate and not p.won then
+        turnT = turnT + 1
+        if turnT >= TURN_TIME or bosses[turn].dead then next_turn() end
+    end
+    if turn_msg > 0 then turn_msg = turn_msg - 1 end
+
     -- presidentes atiram para frente
     for i, b in ipairs(bosses) do
-        if not b.dead then
+        if not b.dead and boss_active(i) then
             b.timer = b.timer - 1
             if b.timer <= 0 then
                 b.timer = b.fire
@@ -1150,7 +1183,13 @@ local function draw_hud(frame)
                 y = 6 + flr((i - 1) / 2) * 20
             end
             local big = b.def == BOSS_DEFS.kim
-            ui.print(b.def.name, x, y, b.dead and C(0x847e87) or C(0xffffff))
+            local ncol = C(0xffffff)
+            if b.dead then
+                ncol = C(0x847e87)
+            elseif multi and boss_active(i) then
+                ncol = C(0xfbf236)   -- presidente da vez em amarelo
+            end
+            ui.print(b.def.name, x, y, ncol)
             bar(x, y + 9, big and 130 or 100, b.hp / b.maxhp, C(0xac3232), big and 5 or 4)
         end
     else
@@ -1159,6 +1198,13 @@ local function draw_hud(frame)
         ui.print("CHEGADA", bx0, 8, C(0xffffff))
         local px = bx0 + 48
         bar(px, 9, bx1 - px, ui.mid(0, p.x / FINISH, 1), C(0x6abe30))
+    end
+
+    -- aviso de troca no revezamento
+    if turn_msg > 0 and runT >= 150 and not p.won then
+        local s = "VEZ DO " .. bosses[turn].def.name .. "!"
+        ui.rectfill(cx(s) - 8, 54, 480 - cx(s) + 8, 70, C(0x222034))
+        ui.print(s, cx(s), 59, C(0xfbf236))
     end
 
     -- aviso de inicio de fase
@@ -1199,13 +1245,13 @@ local HOWTO = {
     reflect = { title = "REFLETIR", pad = "Y", arrow = "left", demo = "reflect",
                 text = { "AGORA O PRESIDENTE ATIRA EM VOCE!", "QUANDO O TIRO CHEGAR, APERTE PARA DEVOLVER." } },
     kame = { title = "KAMEHAMEHA", pad = "A", arrow = "right", demo = "kame",
-             text = { "JUNTE 10 CARTOES PARA CARREGAR.", "O RAIO ACERTA TODOS COM 3X MAIS DANO!" } },
+             text = { "JUNTE 10 CARTOES PARA CARREGAR.", "O RAIO CAUSA 3X MAIS DANO NO PRESIDENTE!" } },
     goal_run = { title = "OBJETIVO", demo = "goal_run",
                  text = { "FUJA DO PRESIDENTE ATE A CHEGADA.", "PEGUE CARTOES PARA FAZER PONTOS.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
     goal_combat = { title = "COMBATE", demo = "reflect",
                     text = { "REFLITA OS TIROS ATE A VIDA DELE ACABAR.", "SE NAO DER, DESVIE PULANDO OU DESLIZANDO.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
     goal_final = { title = "BATALHA FINAL", demo = "goal_final",
-                   text = { "TODOS OS PRESIDENTES + KIM JONG UN!", "REFLITA OS TIROS E USE O KAMEHAMEHA.", "O KIM E O MAIS FORTE DE TODOS." } },
+                   text = { "OS PRESIDENTES SE REVEZAM ATRAS DE VOCE:", "TRUMP, LULA, XI E O KIM JONG UN,", "O MAIS FORTE DE TODOS!" } },
 }
 
 local ALL_HOWTO = { "jump", "slide", "reflect", "dodge", "kame", "goal_run" }
@@ -1347,6 +1393,7 @@ local function menu_items()
     local items = {
         { label = "JOGAR", action = "play" },
         { label = "COMO JOGAR", action = "howto" },
+        { label = "TESTAR CONTROLE", action = "pad" },
     }
     for n, ph in ipairs(PHASES) do
         local label
@@ -1364,6 +1411,8 @@ end
 
 local unlock_msg = 0    -- tempo mostrando o aviso de fases liberadas
 
+pad_idle = 0   -- (global) tempo sem apertar nada na tela de teste
+
 local function update_title()
     if unlock_msg > 0 then unlock_msg = unlock_msg - 1 end
 
@@ -1378,7 +1427,7 @@ local function update_title()
     end
 
     local items = menu_items()
-    local count = unlocked and #items or 2
+    local count = unlocked and #items or 3
     if bp(DOWN) then menu_sel = menu_sel % count + 1 end
     if bp(UP) then menu_sel = (menu_sel - 2) % count + 1 end
     if pressed_ok() then
@@ -1390,6 +1439,9 @@ local function update_title()
         elseif it.action == "play" then
             single = false
             begin_phase(1)
+        elseif it.action == "pad" then
+            state = "padtest"
+            pad_idle = 0
         else
             show_howto(ALL_HOWTO, "menu")
         end
@@ -1441,6 +1493,85 @@ local function draw_title(frame)
     draw_arrow(x, GROUND + 8, "up", C(0xffffff))
     draw_arrow(x + 10, GROUND + 8, "down", C(0xffffff))
     ui.print(t, x + 20, GROUND + 8, C(0xffffff))
+end
+
+-- ===================================================================
+-- Teste do controle: mostra qual botao o jogo esta recebendo
+-- ===================================================================
+local function held(b) return b ~= nil and ui.btn(b) end
+
+local function update_padtest()
+    local any = false
+    for _, b in ipairs({ LEFT, RIGHT, UP, DOWN, PAD_A, PAD_B, PAD_X, PAD_Y, BTN_F, BTN_G }) do
+        if held(b) then any = true end
+    end
+    pad_idle = any and 0 or pad_idle + 1
+    if pad_idle > 180 then go_title() end   -- 3 s sem apertar nada: volta
+end
+
+local function draw_padtest(frame)
+    local on, off = C(0xffffff), C(0x222034)
+    ui.rectfill(30, 10, 450, 256, C(0x222034))
+    ui.rect(30, 10, 450, 256, C(0xfbf236))
+    local t = "TESTE DO CONTROLE"
+    ui.print(t, cx(t), 18, C(0xfbf236))
+    t = "APERTE CADA BOTAO: ELE DEVE ACENDER NO DESENHO"
+    ui.print(t, cx(t), 32, C(0xffffff))
+
+    -- ombros L e R
+    ui.rectfill(100, 50, 170, 62, held(BTN_F) and on or C(0x847e87))
+    ui.print("L", 132, 53, C(0x000000))
+    ui.rectfill(310, 50, 380, 62, held(BTN_G) and on or C(0x847e87))
+    ui.print("R", 342, 53, C(0x000000))
+
+    -- corpo do controle estilo SNES
+    ui.circfill(150, 105, 44, C(0xcbdbfc))
+    ui.circfill(330, 105, 44, C(0xcbdbfc))
+    ui.rectfill(150, 61, 330, 149, C(0xcbdbfc))
+
+    -- direcional
+    ui.rectfill(142, 83, 158, 127, C(0x595652))
+    ui.rectfill(128, 97, 172, 113, C(0x595652))
+    ui.rectfill(144, 85, 156, 96, held(UP) and on or off)
+    ui.rectfill(144, 114, 156, 125, held(DOWN) and on or off)
+    ui.rectfill(130, 99, 141, 111, held(LEFT) and on or off)
+    ui.rectfill(159, 99, 170, 111, held(RIGHT) and on or off)
+
+    -- botoes Y X A B (cores do Super Famicom)
+    local face = {
+        { "X", PAD_X, 330, 85, 0x5b6ee1 },
+        { "Y", PAD_Y, 310, 105, 0x6abe30 },
+        { "A", PAD_A, 350, 105, 0xac3232 },
+        { "B", PAD_B, 330, 125, 0xfbf236 },
+    }
+    for _, f in ipairs(face) do
+        local pressed = held(f[2])
+        ui.circfill(f[3], f[4], 9, pressed and on or C(f[5]))
+        ui.print(f[1], f[3] - 2, f[4] - 3, C(0x000000))
+    end
+
+    -- o que cada botao faz no jogo
+    local rows = {
+        { "X /", "PULAR", PAD_X, UP, "up" },
+        { "B /", "DESLIZAR / VOLTAR", PAD_B, DOWN, "down" },
+        { "Y /", "REFLETIR", PAD_Y, LEFT, "left" },
+        { "A /", "KAMEHAMEHA / CONFIRMAR", PAD_A, RIGHT, "right" },
+        { "L / R", "SEM USO", BTN_F, BTN_G },
+    }
+    for i, r in ipairs(rows) do
+        local y = 160 + (i - 1) * 13
+        local lit = held(r[3]) or held(r[4])
+        local col = lit and C(0xfbf236) or C(0x9badb7)
+        ui.print(r[1], 110, y, col)
+        if r[5] then draw_arrow(132, y, r[5], col) end
+        ui.print(r[2], 170, y, col)
+    end
+    t = "TECLADO: W A S D = DIRECIONAL   J=A  K=B  L=X  M=Y"
+    ui.print(t, cx(t), 228, C(0x847e87))
+
+    local left = math.max(0, 3 - flr(pad_idle / 60))
+    t = "SEM APERTAR NADA POR 3s VOLTA AO MENU (" .. left .. ")"
+    ui.print(t, cx(t), 242, C(0xcbdbfc))
 end
 
 -- ===================================================================
@@ -1519,6 +1650,8 @@ function loop(frame)
         update_title()
     elseif state == "howto" then
         update_howto()
+    elseif state == "padtest" then
+        update_padtest()
     elseif state == "run" then
         update_run()
     else
@@ -1526,7 +1659,7 @@ function loop(frame)
         if state == "caught" then
             for i, b in ipairs(bosses) do
                 if not b.dead then
-                    b.sx = b.sx + (PLAYER_X - 12 - (i - 1) * 10 - b.sx) * 0.1
+                    b.sx = b.sx + ((boss_active(i) and PLAYER_X - 12 or -90) - b.sx) * 0.1
                 end
             end
         end
@@ -1548,7 +1681,7 @@ function loop(frame)
     local blink = flr(frame / 30) % 2 == 0
     local ending = state == "win" and not single
 
-    if state == "title" or state == "howto" then
+    if state == "title" or state == "howto" or state == "padtest" then
         local cam = frame * 1.5
         draw_world(cam, cam, true)
     elseif ending then
@@ -1564,6 +1697,8 @@ function loop(frame)
         draw_title(frame)
     elseif state == "howto" then
         draw_howto(frame)
+    elseif state == "padtest" then
+        draw_padtest(frame)
     elseif state == "clear" then
         local nxt = PHASES[phase + 1]
         local who
@@ -1620,7 +1755,7 @@ function loop(frame)
         lines[#lines + 1] = { blink and "APERTE A PARA VOLTAR AO MENU" or "FASES LIBERADAS NO MENU!", 0xcbdbfc }
         panel(lines, 4)
     elseif state == "caught" and endT > 40 then
-        local who = #bosses > 1 and "OS PRESIDENTES TE PEGARAM!" or ("O " .. boss_names() .. " TE PEGOU!")
+        local who = "O " .. bosses[P.rotate and turn or 1].def.name .. " TE PEGOU!"
         panel({
             { who, 0xac3232 },
             { "", 0xffffff },
