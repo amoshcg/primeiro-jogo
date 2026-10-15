@@ -501,6 +501,9 @@ local function pressed_reflect() return bp(LEFT) or bp(PAD_Y) end
 local function pressed_kame() return bp(RIGHT) or bp(PAD_A) end
 local function pressed_ok() return bp(PAD_A) end
 local function pressed_back() return bp(PAD_B) end
+local function holding_slide()
+    return ui.btn(DOWN) or (PAD_B ~= nil and ui.btn(PAD_B))
+end
 
 -- desenha os 4 botoes do controle em losango, destacando um deles
 local function draw_pad(x, y, active)
@@ -570,7 +573,7 @@ local PHASES = {
     { country = "EUA", card = "GREEN CARDS", tag = "USA", draw_card = draw_green_card,
       combat = true, speed = 3.0, shot_speed = 2.8, regions = MAP_EUA,
       bosses = { { id = "trump", hp = 5, fire = 180 } },
-      intro = { "reflect", "goal_combat" } },
+      intro = { "reflect", "dodge", "goal_combat" } },
     { country = "BRASIL", card = "BOLSAS", tag = "BR", draw_card = draw_bolsa_card,
       combat = true, speed = 3.2, shot_speed = 3.0, regions = MAP_BRASIL,
       bosses = { { id = "lula", hp = 5, fire = 170 } } },
@@ -813,7 +816,7 @@ local function update_combat()
             b.timer = b.timer - 1
             if b.timer <= 0 then
                 b.timer = b.fire
-                shots[#shots + 1] = { x = b.sx + b.def.w + 6, y = GROUND - 18, dir = 1, owner = i }
+                shots[#shots + 1] = { x = b.sx + b.def.w + 6, y = GROUND - 20, dir = 1, owner = i }
             end
         end
     end
@@ -829,7 +832,7 @@ local function update_combat()
             s.x = s.x + P.shot_speed
             if p.shield > 0 and s.x + 12 >= PLAYER_X - 40 and s.x - 12 <= sx1 then
                 s.dir = -1   -- refletido!
-            elseif overlap(sx0, y0, sx1, y1, s.x - 10, s.y - 4, s.x + 10, s.y + 4) then
+            elseif overlap(sx0, y0, sx1, y1, s.x - 8, s.y - 3, s.x + 8, s.y + 3) then
                 hurt(0.3)
                 remove = true
             elseif s.x > 500 then
@@ -898,7 +901,14 @@ local function update_run()
             p.fastfall = false
         end
     end
-    if p.slide > 0 then p.slide = p.slide - 1 end
+    if p.slide > 0 then
+        -- segurando B/BAIXO o deslize continua (ajuda a desviar dos tiros)
+        if p.slide <= 2 and p.onground and holding_slide() then
+            p.slide = 2
+        else
+            p.slide = p.slide - 1
+        end
+    end
     if p.inv > 0 then p.inv = p.inv - 1 end
 
     -- obstaculos
@@ -1183,7 +1193,9 @@ local HOWTO = {
     jump = { title = "PULAR", pad = "X", arrow = "up", demo = "jump",
              text = { "PULE AS BARREIRAS AMARELAS", "E PEGUE OS CARTOES NO ALTO." } },
     slide = { title = "DESLIZAR", pad = "B", arrow = "down", demo = "slide",
-              text = { "DESLIZE POR BAIXO DAS PLACAS.", "NO COMBATE, TAMBEM DESVIA DOS TIROS." } },
+              text = { "DESLIZE POR BAIXO DAS PLACAS.", "SEGURE PARA CONTINUAR DESLIZANDO." } },
+    dodge = { title = "DESVIAR", pad = "B", arrow = "down", demo = "dodge",
+              text = { "O TIRO PASSA POR CIMA SE VOCE DESLIZAR", "E POR BAIXO SE VOCE PULAR (X)." } },
     reflect = { title = "REFLETIR", pad = "Y", arrow = "left", demo = "reflect",
                 text = { "AGORA O PRESIDENTE ATIRA EM VOCE!", "QUANDO O TIRO CHEGAR, APERTE PARA DEVOLVER." } },
     kame = { title = "KAMEHAMEHA", pad = "A", arrow = "right", demo = "kame",
@@ -1191,12 +1203,12 @@ local HOWTO = {
     goal_run = { title = "OBJETIVO", demo = "goal_run",
                  text = { "FUJA DO PRESIDENTE ATE A CHEGADA.", "PEGUE CARTOES PARA FAZER PONTOS.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
     goal_combat = { title = "COMBATE", demo = "reflect",
-                    text = { "REFLITA OS TIROS ATE A VIDA DELE ACABAR.", "O MAPA SE REPETE ATE ELE CAIR.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
+                    text = { "REFLITA OS TIROS ATE A VIDA DELE ACABAR.", "SE NAO DER, DESVIE PULANDO OU DESLIZANDO.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
     goal_final = { title = "BATALHA FINAL", demo = "goal_final",
                    text = { "TODOS OS PRESIDENTES + KIM JONG UN!", "REFLITA OS TIROS E USE O KAMEHAMEHA.", "O KIM E O MAIS FORTE DE TODOS." } },
 }
 
-local ALL_HOWTO = { "jump", "slide", "reflect", "kame", "goal_run" }
+local ALL_HOWTO = { "jump", "slide", "reflect", "dodge", "kame", "goal_run" }
 
 local function draw_demo(kind, frame)
     local bx0, by0, bx1, by1 = 100, 128, 380, 206
@@ -1221,9 +1233,9 @@ local function draw_demo(kind, frame)
         local t = frame % 90
         draw_trump(130, gy, frame)
         if t < 40 then
-            draw_tomahawk(150 + t * 2.6, gy - 18, 1)
+            draw_tomahawk(150 + t * 2.6, gy - 20, 1)
         elseif t < 70 then
-            draw_tomahawk(254 - (t - 40) * 4, gy - 18, -1)
+            draw_tomahawk(254 - (t - 40) * 4, gy - 20, -1)
         end
         draw_runner(262, gy, false, frame)
         if t >= 34 and t < 48 then
@@ -1231,6 +1243,20 @@ local function draw_demo(kind, frame)
             ui.print("Y!", 258, by0 + 6, C(0xffffff))
         end
         if t >= 66 and t < 80 then ui.print("-1", 132, by0 + 6, C(0xac3232)) end
+    elseif kind == "dodge" then
+        -- primeiro desliza por baixo do missil, depois pula por cima
+        local t = frame % 120
+        local sx = 110 + (t % 60) * 4.5
+        if t < 60 then
+            draw_runner(230, gy, sx > 185 and sx < 265, frame)
+            ui.print("B", 232, by0 + 6, C(0xffffff))
+        else
+            local u = (sx - 236) / 50
+            local h = math.max(0, 1 - u * u) * 40
+            draw_runner(230, gy - h, false, h > 0 and 0 or frame)
+            ui.print("X", 232, by0 + 6, C(0xffffff))
+        end
+        draw_nuke(sx, gy - 20, 1)
     elseif kind == "kame" then
         local t = frame % 120
         draw_kim(130, gy, frame)
