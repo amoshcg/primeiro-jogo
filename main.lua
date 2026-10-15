@@ -44,32 +44,11 @@ end
 local function draw_bolsa_card(x, y)
     -- cartao azul com faixas verde/amarela e a palavra BOLSA
     x, y = flr(x), flr(y)
-    ui.rectfill(x - 18, y - 8, x + 18, y + 8, C(0x5b6ee1))
-    ui.rectfill(x - 18, y + 4, x + 18, y + 6, C(0x6abe30))
-    ui.rectfill(x - 18, y + 6, x + 18, y + 8, C(0xfbf236))
-    ui.rect(x - 18, y - 8, x + 18, y + 8, C(0x3f3f74))
-    ui.print("BOLSA", x - 14, y - 5, C(0xffffff))
-end
-
--- ===================================================================
--- Bandeiras
--- ===================================================================
-local function draw_flag_usa(x, y)
-    ui.line(x, y, x, y + 30, C(0x847e87))
-    for r = 0, 6 do
-        local col = (r % 2 == 0) and C(0xac3232) or C(0xffffff)
-        ui.rectfill(x + 1, y + r * 2, x + 20, y + r * 2 + 1, col)
-    end
-    ui.rectfill(x + 1, y, x + 9, y + 7, C(0x3f3f74))
-    ui.print("*", x + 3, y + 1, C(0xffffff))
-end
-
-local function draw_flag_br(x, y)
-    ui.line(x, y, x, y + 30, C(0x847e87))
-    ui.rectfill(x + 1, y, x + 21, y + 13, C(0x37946e))
-    ui.trisfill(x + 3, y + 7, x + 19, y + 7, x + 11, y + 2, C(0xfbf236))
-    ui.trisfill(x + 3, y + 7, x + 19, y + 7, x + 11, y + 12, C(0xfbf236))
-    ui.circfill(x + 11, y + 7, 3, C(0x3f3f74))
+    ui.rectfill(x - 13, y - 6, x + 13, y + 6, C(0x5b6ee1))
+    ui.rectfill(x - 13, y + 4, x + 13, y + 4, C(0x6abe30))
+    ui.rectfill(x - 13, y + 5, x + 13, y + 6, C(0xfbf236))
+    ui.rect(x - 13, y - 6, x + 13, y + 6, C(0x3f3f74))
+    ui.print("BOLSA", x - 11, y - 4, C(0xffffff))
 end
 
 -- ===================================================================
@@ -143,7 +122,7 @@ local function lm_vegas(x)
     for yy = g - 112, g - 10, 12 do
         for xx = x - 14, x + 10, 8 do
             if flr((xx + yy) / 4) % 3 ~= 0 then
-                ui.rectfill(xx, yy, xx + 3, yy + 5, C(0xfbf236))
+                ui.rectfill(xx, yy, xx + 3, yy + 5, C(0xd77bba))
             end
         end
     end
@@ -220,7 +199,7 @@ local PHASES = {
         country = "EUA", chaser = "TRUMP", card = "GREEN CARDS", tag = "USA",
         finish = "VOCE CHEGOU NA CALIFORNIA!",
         draw_card = draw_green_card, card_w = 8, card_h = 7,
-        draw_chaser = draw_trump, draw_flag = draw_flag_usa,
+        draw_chaser = draw_trump,
         regions = {
             { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
             { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "..h...ccc...b...h...B....a.a...h..b.." },
@@ -232,8 +211,8 @@ local PHASES = {
     {
         country = "BRASIL", chaser = "LULA", card = "BOLSAS", tag = "BR",
         finish = "VOCE ATRAVESSOU O BRASIL!",
-        draw_card = draw_bolsa_card, card_w = 19, card_h = 9,
-        draw_chaser = draw_lula, draw_flag = draw_flag_br,
+        draw_card = draw_bolsa_card, card_w = 14, card_h = 7,
+        draw_chaser = draw_lula,
         regions = {
             { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
             { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "..b..h..ccc..b..b..a.a..h..h..B...cc.." },
@@ -476,12 +455,6 @@ local function draw_world(cam)
         ui.rectfill(x, GROUND + 22, x + 20, GROUND + 24, C(0xffffff))
     end
 
-    -- bandeirinhas na calcada
-    local f0 = flr(cam / 400)
-    for k = f0, f0 + 2 do
-        P.draw_flag(flr(k * 400 + 300 - cam), GROUND - 31)
-    end
-
     -- placas com o nome da regiao
     for _, rg in ipairs(REGIONS) do
         local x = flr(rg.start + 40 - cam)
@@ -512,22 +485,33 @@ local function draw_world(cam)
     for _, o in ipairs(obstacles) do
         local x = flr(o.x - cam)
         if x > -30 and x < 500 then
+            -- obstaculos usam amarelo/preto de perigo com contorno preto
+            -- para nao se confundirem com o cenario
+            local K, Y, R = C(0x000000), C(0xfbf236), C(0xac3232)
             if o.kind == "b" then
-                -- barreira listrada
-                ui.rectfill(x + 2, GROUND - 22, x + 4, GROUND, C(0x696a6a))
-                ui.rectfill(x + 14, GROUND - 22, x + 16, GROUND, C(0x696a6a))
-                for s = 0, 3 do
-                    local col = (s % 2 == 0) and C(0xac3232) or C(0xffffff)
-                    ui.rectfill(x + s * 4 + 1, GROUND - 22, x + s * 4 + 4, GROUND - 16, col)
+                -- barreira de perigo (pular)
+                ui.rectfill(x - 1, GROUND + 1, x + 19, GROUND + 3, K)
+                ui.rectfill(x + 1, GROUND - 23, x + 5, GROUND, K)
+                ui.rectfill(x + 13, GROUND - 23, x + 17, GROUND, K)
+                ui.rectfill(x + 2, GROUND - 22, x + 4, GROUND, R)
+                ui.rectfill(x + 14, GROUND - 22, x + 16, GROUND, R)
+                ui.rectfill(x - 1, GROUND - 24, x + 19, GROUND - 14, K)
+                for s = 0, 4 do
+                    local col = (s % 2 == 0) and Y or K
+                    ui.rectfill(x + s * 4, GROUND - 23, x + s * 4 + 3, GROUND - 15, col)
                 end
-                ui.rectfill(x + 17, GROUND - 22, x + 18, GROUND - 16, C(0xac3232))
+                -- seta "pule"
+                ui.trisfill(x + 4, GROUND - 30, x + 14, GROUND - 30, x + 9, GROUND - 36, Y)
             else
-                -- placa suspensa (passar deslizando)
-                ui.rectfill(x + 9, 0, x + 12, GROUND - 60, C(0x696a6a))
-                ui.rectfill(x - 2, GROUND - 60, x + 24, GROUND - 17, C(0x306082))
-                ui.rect(x - 2, GROUND - 60, x + 24, GROUND - 17, C(0xffffff))
-                ui.print(P.tag, x + 2, GROUND - 46, C(0xffffff))
-                ui.rectfill(x + 2, GROUND - 32, x + 20, GROUND - 30, C(0xac3232))
+                -- placa de perigo suspensa (deslizar por baixo)
+                ui.rectfill(x + 8, 0, x + 13, GROUND - 60, K)
+                ui.rectfill(x + 9, 0, x + 12, GROUND - 60, R)
+                ui.rectfill(x - 4, GROUND - 62, x + 26, GROUND - 15, K)
+                ui.rectfill(x - 2, GROUND - 60, x + 24, GROUND - 17, Y)
+                ui.rectfill(x + 1, GROUND - 57, x + 21, GROUND - 20, R)
+                ui.print(P.tag, x + 3, GROUND - 52, C(0xffffff))
+                -- seta "deslize"
+                ui.trisfill(x + 4, GROUND - 38, x + 18, GROUND - 38, x + 11, GROUND - 26, C(0xffffff))
             end
         end
     end
