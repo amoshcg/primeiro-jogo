@@ -1362,7 +1362,21 @@ local function menu_items()
     return items
 end
 
+local unlock_msg = 0    -- tempo mostrando o aviso de fases liberadas
+
 local function update_title()
+    if unlock_msg > 0 then unlock_msg = unlock_msg - 1 end
+
+    -- truque: pular + deslizar ao mesmo tempo libera todas as fases
+    local jump_held = ui.btn(UP) or (PAD_X ~= nil and ui.btn(PAD_X))
+    if jump_held and holding_slide() and (pressed_jump() or pressed_slide()) then
+        if not unlocked then
+            unlocked = true
+            unlock_msg = 150
+        end
+        return
+    end
+
     local items = menu_items()
     local count = unlocked and #items or 2
     if bp(DOWN) then menu_sel = menu_sel % count + 1 end
@@ -1410,6 +1424,10 @@ local function draw_title(frame)
     if not unlocked then
         t = "ZERE O JOGO PARA ESCOLHER A FASE"
         ui.print(t, cx(t), y1 - 14, C(0xd77bba))
+    elseif unlock_msg > 0 and flr(frame / 8) % 2 == 0 then
+        t = "TODAS AS FASES LIBERADAS!"
+        ui.rectfill(cx(t) - 6, y1 + 3, 480 - cx(t) + 6, y1 + 15, C(0x222034))
+        ui.print(t, cx(t), y1 + 6, C(0xfbf236))
     end
 
     draw_trump(362, GROUND, frame)
