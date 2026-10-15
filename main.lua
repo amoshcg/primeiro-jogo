@@ -3,8 +3,9 @@ require "sprites"
 
 -- ===================================================================
 -- Trump's Run - corrida 2D pelo mundo
--- O personagem corre sozinho: CIMA/Z pula, BAIXO/X desliza,
--- ESQUERDA/F reflete os tiros e DIREITA/G solta o kamehameha.
+-- O personagem corre sozinho. Controle (Y esquerda, X cima, A direita,
+-- B baixo): X/CIMA pula, B/BAIXO desliza, Y/ESQUERDA reflete os tiros
+-- e A/DIREITA solta o kamehameha (so na batalha final).
 -- Cada fase e um pais, com um presidente correndo atras e atirando.
 -- ===================================================================
 
@@ -486,7 +487,34 @@ local function draw_arrow(x, y, dir, col)
 end
 
 -- ===================================================================
--- Fases. Mapa estatico de cada pais:
+-- Botoes do controle (Y esquerda, X cima, A direita, B baixo)
+-- No Lupi: A = BTN_X, B = BTN_Z, X = BTN_Q, Y = BTN_E
+-- Teclado: A = J, B = K, X = L, Y = M
+-- ===================================================================
+local PAD_A, PAD_B, PAD_X, PAD_Y = BTN_X, BTN_Z, BTN_Q, BTN_E
+
+local function bp(b) return b ~= nil and ui.btnp(b) end
+
+local function pressed_jump() return bp(UP) or bp(PAD_X) end
+local function pressed_slide() return bp(DOWN) or bp(PAD_B) end
+local function pressed_reflect() return bp(LEFT) or bp(PAD_Y) end
+local function pressed_kame() return bp(RIGHT) or bp(PAD_A) end
+local function pressed_ok() return bp(PAD_A) end
+local function pressed_back() return bp(PAD_B) end
+
+-- desenha os 4 botoes do controle em losango, destacando um deles
+local function draw_pad(x, y, active)
+    local btns = { { "X", 0, -11 }, { "Y", -11, 0 }, { "A", 11, 0 }, { "B", 0, 11 } }
+    for _, b in ipairs(btns) do
+        local on = b[1] == active
+        local bx, by = x + b[2], y + b[3]
+        ui.circfill(bx, by, 6, on and C(0xfbf236) or C(0x595652))
+        ui.print(b[1], bx - 2, by - 3, on and C(0x000000) or C(0xcbdbfc))
+    end
+end
+
+-- ===================================================================
+-- Mapas estaticos de cada pais:
 --   .  vazio
 --   b  barreira (pular)
 --   h  placa suspensa (deslizar)
@@ -494,62 +522,72 @@ end
 --   a  cartao no alto (pular para pegar)
 --   B  barreira com cartao em cima
 -- Cada regiao comeca com 4 espacos vazios (para a placa com o nome).
---
--- As 3 primeiras fases sao so corrida ate a chegada (sem combate).
--- A batalha final (combat = true) acontece na Coreia do Norte: o mapa
--- se repete em loop ate todos os presidentes serem derrotados.
+-- ===================================================================
+local MAP_EUA = {
+    { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
+    { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "....h.ccc...b...h...B....a.a...h..b.." },
+    { name = "TEXAS",         sky = 0xd9a066, lm = lm_texas,      map = "....b..b.ccc..h..h...B...b..a..h..cc." },
+    { name = "LAS VEGAS",     sky = 0x222034, lm = lm_vegas,      map = "....h..b..ccc..h..B..h...b..b..a.a..h...", night = true },
+    { name = "HOLLYWOOD",     sky = 0xdf7126, lm = lm_hollywood,  map = "....b..h.ccc..B..h..b..h...b..ccc......" },
+}
+
+local MAP_BRASIL = {
+    { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
+    { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "....b..h.ccc..b..b..a.a..h..h..B...cc.." },
+    { name = "BRASILIA",       sky = 0x5fcde4, lm = lm_brasilia, map = "....h..b..ccc..B..h..b..h..a..b..b..ccc." },
+    { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "....h..b.ccc..h..B..b..h..a.a..b..ccc......", forest = true },
+}
+
+local MAP_CHINA = {
+    { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,   map = "......c.c.c...h..b..ccc..B..h..b..a.a..h.." },
+    { name = "GRANDE MURALHA", sky = 0x639bff, lm = lm_muralha,  map = "....b..b..ccc..h..h..B..b..a..h..b..cc." },
+    { name = "XANGAI",         sky = 0x5fcde4, lm = lm_xangai,   map = "....h..b.ccc..h..B..b..h..a.a..b..h..ccc." },
+    { name = "HONG KONG",      sky = 0x222034, lm = lm_hongkong, map = "....b..h..ccc..B..h..b..b..a..h..b..ccc......", night = true },
+}
+
+local MAP_COREIA = {
+    { name = "PYONGYANG",            sky = 0x9badb7, lm = lm_pyongyang, map = "......c.c.c...h...b..ccc...B...h..a.a...b...h.." },
+    { name = "ZONA DESMILITARIZADA", sky = 0xcbdbfc, lm = lm_dmz,       map = "....b...b..ccc...h...B...b...h..a...b..cc.." },
+    { name = "BASE DE MISSEIS",      sky = 0xdf7126, lm = lm_misseis,   map = "....h...b..ccc...B...h...b..a.a...h...b..ccc......" },
+}
+
+-- ===================================================================
+-- Fases
+--   1-3: so corrida ate a chegada
+--   4-6: combate contra um presidente (refletir tiros); o mapa repete
+--   7:   batalha final na Coreia do Norte, todos + Kim (com kamehameha)
+-- intro = paginas de "como jogar" mostradas antes da fase
 -- ===================================================================
 local PHASES = {
-    {
-        country = "EUA", card = "GREEN CARDS", tag = "USA",
-        draw_card = draw_green_card, speed = 3.0,
-        bosses = { { id = "trump" } },
-        regions = {
-            { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
-            { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "....h.ccc...b...h...B....a.a...h..b.." },
-            { name = "TEXAS",         sky = 0xd9a066, lm = lm_texas,      map = "....b..b.ccc..h..h...B...b..a..h..cc." },
-            { name = "LAS VEGAS",     sky = 0x222034, lm = lm_vegas,      map = "....h..b..ccc..h..B..h...b..b..a.a..h...", night = true },
-            { name = "HOLLYWOOD",     sky = 0xdf7126, lm = lm_hollywood,  map = "....b..h.ccc..B..h..b..h...b..ccc......" },
-        },
-    },
-    {
-        country = "BRASIL", card = "BOLSAS", tag = "BR",
-        draw_card = draw_bolsa_card, speed = 3.3,
-        bosses = { { id = "lula" } },
-        regions = {
-            { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
-            { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "....b..h.ccc..b..b..a.a..h..h..B...cc.." },
-            { name = "BRASILIA",       sky = 0x5fcde4, lm = lm_brasilia, map = "....h..b..ccc..B..h..b..h..a..b..b..ccc." },
-            { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "....h..b.ccc..h..B..b..h..a.a..b..ccc......", forest = true },
-        },
-    },
-    {
-        country = "CHINA", card = "SOCIAL CREDIT", tag = "CN",
-        draw_card = draw_credit_card, speed = 3.6,
-        bosses = { { id = "xi" } },
-        regions = {
-            { name = "PEQUIM",         sky = 0xcbdbfc, lm = lm_pequim,   map = "......c.c.c...h..b..ccc..B..h..b..a.a..h.." },
-            { name = "GRANDE MURALHA", sky = 0x639bff, lm = lm_muralha,  map = "....b..b..ccc..h..h..B..b..a..h..b..cc." },
-            { name = "XANGAI",         sky = 0x5fcde4, lm = lm_xangai,   map = "....h..b.ccc..h..B..b..h..a.a..b..h..ccc." },
-            { name = "HONG KONG",      sky = 0x222034, lm = lm_hongkong, map = "....b..h..ccc..B..h..b..b..a..h..b..ccc......", night = true },
-        },
-    },
-    {
-        country = "COREIA DO NORTE", card = "VISTOS", tag = "NK", combat = true,
-        draw_card = draw_visa_card, speed = 3.4, shot_speed = 3.4,
-        -- Kim e o chefe mais forte: mais vida e atira mais vezes
-        bosses = {
-            { id = "kim",   hp = 12, fire = 200 },
-            { id = "xi",    hp = 4,  fire = 380 },
-            { id = "lula",  hp = 4,  fire = 380 },
-            { id = "trump", hp = 4,  fire = 380 },
-        },
-        regions = {
-            { name = "PYONGYANG",            sky = 0x9badb7, lm = lm_pyongyang, map = "......c.c.c...h...b..ccc...B...h..a.a...b...h.." },
-            { name = "ZONA DESMILITARIZADA", sky = 0xcbdbfc, lm = lm_dmz,       map = "....b...b..ccc...h...B...b...h..a...b..cc.." },
-            { name = "BASE DE MISSEIS",      sky = 0xdf7126, lm = lm_misseis,   map = "....h...b..ccc...B...h...b..a.a...h...b..ccc......" },
-        },
-    },
+    { country = "EUA", card = "GREEN CARDS", tag = "USA", draw_card = draw_green_card,
+      speed = 3.0, regions = MAP_EUA, bosses = { { id = "trump" } },
+      intro = { "jump", "slide", "goal_run" } },
+    { country = "BRASIL", card = "BOLSAS", tag = "BR", draw_card = draw_bolsa_card,
+      speed = 3.3, regions = MAP_BRASIL, bosses = { { id = "lula" } } },
+    { country = "CHINA", card = "SOCIAL CREDIT", tag = "CN", draw_card = draw_credit_card,
+      speed = 3.6, regions = MAP_CHINA, bosses = { { id = "xi" } } },
+
+    { country = "EUA", card = "GREEN CARDS", tag = "USA", draw_card = draw_green_card,
+      combat = true, speed = 3.0, shot_speed = 3.0, regions = MAP_EUA,
+      bosses = { { id = "trump", hp = 6, fire = 150 } },
+      intro = { "reflect", "goal_combat" } },
+    { country = "BRASIL", card = "BOLSAS", tag = "BR", draw_card = draw_bolsa_card,
+      combat = true, speed = 3.2, shot_speed = 3.2, regions = MAP_BRASIL,
+      bosses = { { id = "lula", hp = 7, fire = 140 } } },
+    { country = "CHINA", card = "SOCIAL CREDIT", tag = "CN", draw_card = draw_credit_card,
+      combat = true, speed = 3.4, shot_speed = 3.4, regions = MAP_CHINA,
+      bosses = { { id = "xi", hp = 8, fire = 130 } } },
+
+    { country = "COREIA DO NORTE", card = "VISTOS", tag = "NK", draw_card = draw_visa_card,
+      combat = true, final = true, kame = true, speed = 3.4, shot_speed = 3.4, regions = MAP_COREIA,
+      -- Kim e o chefe mais forte: mais vida e atira mais vezes
+      bosses = {
+          { id = "kim",   hp = 12, fire = 200 },
+          { id = "xi",    hp = 4,  fire = 380 },
+          { id = "lula",  hp = 4,  fire = 380 },
+          { id = "trump", hp = 4,  fire = 380 },
+      },
+      intro = { "kame", "goal_final" } },
 }
 
 local ENERGY_MAX = 10   -- cartoes para carregar o kamehameha
@@ -562,7 +600,7 @@ local obstacles = {}
 local cards = {}
 local LOOP = 1          -- comprimento do mapa
 local FINISH = 1        -- linha de chegada (fases sem combate)
-local LOOPING = false   -- o mapa se repete (batalha final e telas de menu)
+local LOOPING = false   -- o mapa se repete (combate e telas de menu)
 
 local function build_map()
     obstacles, cards = {}, {}
@@ -615,8 +653,9 @@ local state = "title"   -- title | howto | run | caught | clear | win
 local menu_sel = 1
 local unlocked = false  -- fases liberadas depois de zerar o jogo
 local single = false    -- jogando apenas uma fase escolhida no menu
+local howto_list = {}   -- paginas do "como jogar" mostradas agora
 local howto_page = 1
-local howto_then = "play"
+local howto_then = "menu"  -- "menu" ou o numero da fase a iniciar
 local p = {}
 local bosses = {}
 local shots = {}
@@ -652,9 +691,25 @@ local function start_phase(n)
     state = "run"
 end
 
+local function show_howto(list, after)
+    howto_list = list
+    howto_page = 1
+    howto_then = after
+    state = "howto"
+end
+
+-- entra numa fase, mostrando antes o "como jogar" dela (se tiver)
+local function begin_phase(n)
+    start_phase(n)
+    if PHASES[n].intro then
+        LOOPING = true   -- o cenario fica rodando atras da explicacao
+        show_howto(PHASES[n].intro, n)
+    end
+end
+
 local function go_title()
     start_phase(1)
-    LOOPING = true      -- o cenario do menu fica rodando sem parar
+    LOOPING = true
     state = "title"
     menu_sel = 1
 end
@@ -666,7 +721,8 @@ end
 
 local function phase_name(n)
     local ph = PHASES[n]
-    if ph.combat then return "BATALHA FINAL: " .. ph.country end
+    if ph.final then return "BATALHA FINAL: " .. ph.country end
+    if ph.combat then return "FASE " .. n .. ": COMBATE - " .. ph.country end
     return "FASE " .. n .. ": " .. ph.country
 end
 
@@ -680,12 +736,6 @@ end
 local function overlap(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1)
     return ax0 < bx1 and ax1 > bx0 and ay0 < by1 and ay1 > by0
 end
-
--- botoes
-local function pressed_jump() return ui.btnp(UP) or ui.btnp(BTN_Z) end
-local function pressed_slide() return ui.btnp(DOWN) or ui.btnp(BTN_X) end
-local function pressed_reflect() return ui.btnp(LEFT) or ui.btnp(BTN_F) end
-local function pressed_kame() return ui.btnp(RIGHT) or ui.btnp(BTN_G) end
 
 -- ===================================================================
 -- Logica
@@ -739,12 +789,13 @@ local function boss_target(i)
 end
 
 local function update_combat()
-    -- ataques do jogador
+    -- refletir (todas as fases de combate)
     if pressed_reflect() and p.shieldCD == 0 then
         p.shield = 14
         p.shieldCD = 30
     end
-    if pressed_kame() and energy >= ENERGY_MAX and p.beam == 0 and not p.won then
+    -- kamehameha (so na batalha final)
+    if P.kame and pressed_kame() and energy >= ENERGY_MAX and p.beam == 0 and not p.won then
         p.beam = 36
         energy = 0
         shots = {}
@@ -813,7 +864,7 @@ local function update_run()
     p.x = p.x + spd
     p.dist = p.dist + spd
 
-    -- na batalha final o mapa repete: volta ao inicio e os itens reaparecem
+    -- no combate o mapa repete: volta ao inicio e os itens reaparecem
     if LOOPING and p.x >= LOOP then
         p.x = p.x - LOOP
         for _, o in ipairs(obstacles) do o.hit = false end
@@ -1063,25 +1114,29 @@ local function draw_hud(frame)
     ui.print("FUGA", 8, 24, C(0xffffff))
     bar(40, 25, 80, gap, gap < 0.5 and C(0xac3232) or C(0xfbf236))
 
-    if P.combat then
+    if P.kame then
         -- energia do kamehameha
         ui.print("KAME", 8, 36, C(0xffffff))
         local full = energy >= ENERGY_MAX
         local ecol = (full and flr(frame / 8) % 2 == 0) and C(0xffffff) or C(0x5fcde4)
         bar(40, 37, 80, energy / ENERGY_MAX, ecol)
         if full then
-            ui.print("G /", 126, 36, C(0x5fcde4))
+            ui.print("A /", 126, 36, C(0x5fcde4))
             draw_arrow(146, 36, "right", C(0x5fcde4))
         end
+    end
 
+    if P.combat then
         -- vida dos presidentes
+        local multi = #bosses > 1
         for i, b in ipairs(bosses) do
-            local x = 200 + ((i - 1) % 2) * 140
+            local x = multi and (200 + ((i - 1) % 2) * 140) or 200
             local y = 8 + flr((i - 1) / 2) * 12
             local name = b.def.name
             ui.print(name, x, y, b.dead and C(0x847e87) or C(0xffffff))
             local bx = x + (#name + 1) * FONT_W
-            bar(bx, y + 1, x + 134 - bx, b.hp / b.maxhp, C(0xac3232))
+            local bw = (multi and x + 134 or 466) - bx
+            bar(bx, y + 1, bw, b.hp / b.maxhp, C(0xac3232))
         end
     else
         -- progresso ate a chegada
@@ -1101,7 +1156,7 @@ local function draw_hud(frame)
         ui.print(s2, cx(s2), 73, C(0xffffff))
     end
     if p.won and flr(frame / 10) % 2 == 0 then
-        local s = "PRESIDENTES DERROTADOS!"
+        local s = #bosses > 1 and "PRESIDENTES DERROTADOS!" or "PRESIDENTE DERROTADO!"
         ui.print(s, cx(s), 96, C(0xfbf236))
     end
 end
@@ -1117,21 +1172,26 @@ local function panel(lines, y0)
 end
 
 -- ===================================================================
--- Tela de como jogar (uma pagina por botao)
--- teclas: texto normal ou uma seta ("@up", "@down", "@left", "@right")
+-- Como jogar: uma pagina por botao (botao do controle + seta)
 -- ===================================================================
 local HOWTO = {
-    { title = "PULAR", keys = { "Z", "@up" }, demo = "jump",
-      text = { "PULE AS BARREIRAS AMARELAS", "E PEGUE OS CARTOES NO ALTO." } },
-    { title = "DESLIZAR", keys = { "X", "@down" }, demo = "slide",
-      text = { "DESLIZE POR BAIXO DAS PLACAS.", "NA BATALHA, TAMBEM DESVIA DOS TIROS." } },
-    { title = "REFLETIR", keys = { "F", "@left" }, demo = "reflect",
-      text = { "SO NA BATALHA FINAL: QUANDO O TIRO", "CHEGAR, APERTE PARA DEVOLVER O ATAQUE." } },
-    { title = "KAMEHAMEHA", keys = { "G", "@right" }, demo = "kame",
-      text = { "SO NA BATALHA FINAL: JUNTE 10 CARTOES.", "O RAIO CAUSA 3X MAIS DANO!" } },
-    { title = "OBJETIVO", keys = {}, demo = "goal",
-      text = { "EUA, BRASIL E CHINA: FUJA ATE A CHEGADA.", "NA COREIA DO NORTE, ENFRENTE TODOS", "OS PRESIDENTES E O KIM JONG UN!" } },
+    jump = { title = "PULAR", pad = "X", arrow = "up", demo = "jump",
+             text = { "PULE AS BARREIRAS AMARELAS", "E PEGUE OS CARTOES NO ALTO." } },
+    slide = { title = "DESLIZAR", pad = "B", arrow = "down", demo = "slide",
+              text = { "DESLIZE POR BAIXO DAS PLACAS.", "NO COMBATE, TAMBEM DESVIA DOS TIROS." } },
+    reflect = { title = "REFLETIR", pad = "Y", arrow = "left", demo = "reflect",
+                text = { "AGORA O PRESIDENTE ATIRA EM VOCE!", "QUANDO O TIRO CHEGAR, APERTE PARA DEVOLVER." } },
+    kame = { title = "KAMEHAMEHA", pad = "A", arrow = "right", demo = "kame",
+             text = { "JUNTE 10 CARTOES PARA CARREGAR.", "O RAIO ACERTA TODOS COM 3X MAIS DANO!" } },
+    goal_run = { title = "OBJETIVO", demo = "goal_run",
+                 text = { "FUJA DO PRESIDENTE ATE A CHEGADA.", "PEGUE CARTOES PARA FAZER PONTOS.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
+    goal_combat = { title = "COMBATE", demo = "reflect",
+                    text = { "REFLITA OS TIROS ATE A VIDA DELE ACABAR.", "O MAPA SE REPETE ATE ELE CAIR.", "SE ELE TE ALCANCAR, VOCE PERDE!" } },
+    goal_final = { title = "BATALHA FINAL", demo = "goal_final",
+                   text = { "TODOS OS PRESIDENTES + KIM JONG UN!", "REFLITA OS TIROS E USE O KAMEHAMEHA.", "O KIM E O MAIS FORTE DE TODOS." } },
 }
+
+local ALL_HOWTO = { "jump", "slide", "reflect", "kame", "goal_run" }
 
 local function draw_demo(kind, frame)
     local bx0, by0, bx1, by1 = 100, 128, 380, 206
@@ -1154,16 +1214,16 @@ local function draw_demo(kind, frame)
         draw_runner(200, gy, ox > 165 and ox < 225, frame)
     elseif kind == "reflect" then
         local t = frame % 90
-        draw_kim(130, gy, frame)
+        draw_trump(130, gy, frame)
         if t < 40 then
-            draw_nuke(156 + t * 2.5, gy - 18, 1)
+            draw_tomahawk(150 + t * 2.6, gy - 18, 1)
         elseif t < 70 then
-            draw_nuke(256 - (t - 40) * 4, gy - 18, -1)
+            draw_tomahawk(254 - (t - 40) * 4, gy - 18, -1)
         end
         draw_runner(262, gy, false, frame)
         if t >= 34 and t < 48 then
             draw_shield(262, gy, false)
-            ui.print("F!", 258, by0 + 6, C(0xffffff))
+            ui.print("Y!", 258, by0 + 6, C(0xffffff))
         end
         if t >= 66 and t < 80 then ui.print("-1", 132, by0 + 6, C(0xac3232)) end
     elseif kind == "kame" then
@@ -1175,8 +1235,17 @@ local function draw_demo(kind, frame)
             draw_visa_card(240 + (t % 25) * 2, gy - 40)
         elseif t < 86 then
             draw_beam(100, 276, gy - 16, frame)
-            ui.print("G!", 276, by0 + 6, C(0xffffff))
+            ui.print("A!", 276, by0 + 6, C(0xffffff))
             ui.print("-3", 132, by0 + 6, C(0xac3232))
+        end
+    elseif kind == "goal_run" then
+        draw_trump(150, gy, frame)
+        draw_runner(250, gy, false, frame)
+        draw_green_card(290, gy - 12)
+        local fx = 340
+        for i = 0, 6 do
+            local col = (i % 2 == 0) and C(0x000000) or C(0xffffff)
+            ui.rectfill(fx, gy - 70 + i * 10, fx + 5, gy - 61 + i * 10, col)
         end
     else
         draw_trump(110, gy, frame)
@@ -1184,73 +1253,54 @@ local function draw_demo(kind, frame)
         draw_xi(170, gy, frame)
         draw_kim(200, gy, frame)
         draw_runner(290, gy, false, frame)
-        draw_green_card(330, gy - 12)
-        draw_bolsa_card(356, gy - 46)
+        draw_visa_card(330, gy - 12)
     end
     ui.clip(0, 0, 480, 270)
     ui.rect(bx0, by0, bx1, by1, C(0xffffff))
 end
 
 local function draw_howto(frame)
-    local pg = HOWTO[howto_page]
-    ui.rectfill(40, 20, 440, 240, C(0x222034))
-    ui.rect(40, 20, 440, 240, C(0xfbf236))
-    local s = "COMO JOGAR  " .. howto_page .. "/" .. #HOWTO
-    ui.print(s, cx(s), 28, C(0x847e87))
-    ui.print(pg.title, cx(pg.title), 44, C(0xfbf236))
+    local pg = HOWTO[howto_list[howto_page]]
+    ui.rectfill(40, 16, 440, 240, C(0x222034))
+    ui.rect(40, 16, 440, 240, C(0xfbf236))
+    local s = "COMO JOGAR  " .. howto_page .. "/" .. #howto_list
+    ui.print(s, cx(s), 22, C(0x847e87))
+    ui.print(pg.title, cx(pg.title), 34, C(0xfbf236))
 
-    -- teclas (as setas viram triangulos)
-    if #pg.keys > 0 then
-        local widths, total = {}, 0
-        for i, k in ipairs(pg.keys) do
-            local w = (k:sub(1, 1) == "@") and 20 or (#k * FONT_W + 10)
-            widths[i] = w
-            total = total + w + (i > 1 and 30 or 0)
-        end
-        local x = flr(240 - total / 2)
-        for i, k in ipairs(pg.keys) do
-            if i > 1 then
-                ui.print("OU", x + 9, 63, C(0x847e87))
-                x = x + 30
-            end
-            local w = widths[i]
-            ui.rectfill(x, 58, x + w, 74, C(0xffffff))
-            ui.rectfill(x + 1, 72, x + w - 1, 74, C(0x9badb7))
-            if k:sub(1, 1) == "@" then
-                draw_arrow(x + 6, 61, k:sub(2), C(0x000000))
-            else
-                ui.print(k, x + 5, 62, C(0x000000))
-            end
-            x = x + w
-        end
+    -- botao do controle (losango Y X A B) ou a seta
+    if pg.pad then
+        draw_pad(200, 64, pg.pad)
+        ui.print("OU", 232, 61, C(0x847e87))
+        ui.rectfill(256, 54, 276, 72, C(0xffffff))
+        ui.rectfill(257, 70, 275, 72, C(0x9badb7))
+        draw_arrow(262, 58, pg.arrow, C(0x000000))
     end
 
+    local ty = pg.pad and 86 or 56
     for i, ln in ipairs(pg.text) do
-        ui.print(ln, cx(ln), 82 + (i - 1) * 12, C(0xffffff))
+        ui.print(ln, cx(ln), ty + (i - 1) * 12, C(0xffffff))
     end
 
     draw_demo(pg.demo, frame)
 
-    local last = howto_page == #HOWTO
-    local foot = last and (howto_then == "play" and "Z: JOGAR!   X: VOLTAR" or "Z: MENU   X: VOLTAR")
-        or "Z: PROXIMO   X: VOLTAR"
+    local last = howto_page == #howto_list
+    local foot = last and (howto_then == "menu" and "A: MENU   B: VOLTAR" or "A: JOGAR!   B: VOLTAR")
+        or "A: PROXIMO   B: VOLTAR"
     if flr(frame / 30) % 2 == 0 or not last then
         ui.print(foot, cx(foot), 222, C(0xcbdbfc))
     end
 end
 
 local function update_howto()
-    if ui.btnp(BTN_Z) then
-        if howto_page < #HOWTO then
+    if pressed_ok() then
+        if howto_page < #howto_list then
             howto_page = howto_page + 1
-        elseif howto_then == "play" then
-            scores = {}
-            single = false
-            start_phase(1)
-        else
+        elseif howto_then == "menu" then
             go_title()
+        else
+            start_phase(howto_then)
         end
-    elseif ui.btnp(BTN_X) then
+    elseif pressed_back() then
         if howto_page > 1 then
             howto_page = howto_page - 1
         else
@@ -1268,7 +1318,14 @@ local function menu_items()
         { label = "COMO JOGAR", action = "howto" },
     }
     for n, ph in ipairs(PHASES) do
-        local label = ph.combat and "BATALHA FINAL - COREIA" or ("FASE " .. n .. " - " .. ph.country)
+        local label
+        if ph.final then
+            label = "BATALHA FINAL - COREIA"
+        elseif ph.combat then
+            label = "FASE " .. n .. " - COMBATE " .. ph.country
+        else
+            label = "FASE " .. n .. " - " .. ph.country
+        end
         items[#items + 1] = { label = label, phase = n, locked = not unlocked }
     end
     return items
@@ -1277,33 +1334,34 @@ end
 local function update_title()
     local items = menu_items()
     local count = unlocked and #items or 2
-    if ui.btnp(DOWN) then menu_sel = menu_sel % count + 1 end
-    if ui.btnp(UP) then menu_sel = (menu_sel - 2) % count + 1 end
-    if ui.btnp(BTN_Z) then
+    if bp(DOWN) then menu_sel = menu_sel % count + 1 end
+    if bp(UP) then menu_sel = (menu_sel - 2) % count + 1 end
+    if pressed_ok() then
         local it = items[menu_sel]
+        scores = {}
         if it.phase then
-            scores = {}
             single = true
-            start_phase(it.phase)
+            begin_phase(it.phase)
+        elseif it.action == "play" then
+            single = false
+            begin_phase(1)
         else
-            state = "howto"
-            howto_page = 1
-            howto_then = it.action == "play" and "play" or "menu"
+            show_howto(ALL_HOWTO, "menu")
         end
     end
 end
 
 local function draw_title(frame)
     local K = C(0x222034)
-    ui.rectfill(110, 14, 370, 52, K)
-    ui.rect(110, 14, 370, 52, C(0xfbf236))
+    ui.rectfill(110, 8, 370, 44, K)
+    ui.rect(110, 8, 370, 44, C(0xfbf236))
     local t = "TRUMP'S RUN"
-    ui.print(t, cx(t), 23, C(0xfbf236))
+    ui.print(t, cx(t), 16, C(0xfbf236))
     t = "FUJA DOS PRESIDENTES PELO MUNDO"
-    ui.print(t, cx(t), 37, C(0xffffff))
+    ui.print(t, cx(t), 30, C(0xffffff))
 
     local items = menu_items()
-    local y0 = 60
+    local y0 = 50
     local y1 = y0 + #items * 14 + (unlocked and 8 or 22)
     ui.rectfill(120, y0, 350, y1, K)
     ui.rect(120, y0, 350, y1, C(0xffffff))
@@ -1328,8 +1386,8 @@ local function draw_title(frame)
     draw_xi(418, GROUND, frame)
     draw_kim(450, GROUND, frame)
 
-    -- controles: setas para escolher, Z para confirmar
-    t = ": ESCOLHER   Z: CONFIRMAR"
+    -- controles: setas para escolher, A para confirmar
+    t = ": ESCOLHER   A: CONFIRMAR"
     local x = flr(240 - (20 + #t * FONT_W) / 2)
     draw_arrow(x, GROUND + 8, "up", C(0xffffff))
     draw_arrow(x + 10, GROUND + 8, "down", C(0xffffff))
@@ -1424,15 +1482,15 @@ function loop(frame)
             end
         end
         if endT > 30 then
-            if ui.btnp(BTN_Z) then
+            if pressed_ok() then
                 if state == "clear" then
-                    start_phase(phase + 1)
+                    begin_phase(phase + 1)
                 elseif state == "win" then
                     go_title()
                 else
                     start_phase(phase)
                 end
-            elseif ui.btnp(BTN_X) and state == "caught" then
+            elseif pressed_back() and state == "caught" then
                 go_title()
             end
         end
@@ -1459,21 +1517,15 @@ function loop(frame)
         draw_howto(frame)
     elseif state == "clear" then
         local nxt = PHASES[phase + 1]
-        local who = nxt.combat and "TODOS OS PRESIDENTES + KIM JONG UN!"
-            or ("CUIDADO COM O " .. BOSS_DEFS[nxt.bosses[1].id].name .. "!")
-        panel({
-            { "VOCE ESCAPOU DO " .. boss_names() .. "!", 0x6abe30 },
-            { "", 0xffffff },
-            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
-            { "PONTUACAO: " .. collected * 100, 0xffffff },
-            { "", 0xffffff },
-            { "PROXIMA: " .. phase_name(phase + 1), 0xffffff },
-            { who, 0xac3232 },
-            { "", 0xffffff },
-            { blink and "APERTE Z PARA CONTINUAR" or "", 0xcbdbfc },
-        })
-    elseif state == "win" and single then
-        local msg = P.combat and "VOCE DERROTOU TODOS OS PRESIDENTES!" or ("VOCE ESCAPOU DO " .. boss_names() .. "!")
+        local who
+        if nxt.final then
+            who = "TODOS OS PRESIDENTES + KIM JONG UN!"
+        elseif nxt.combat then
+            who = "AGORA O " .. BOSS_DEFS[nxt.bosses[1].id].name .. " VAI ATIRAR!"
+        else
+            who = "CUIDADO COM O " .. BOSS_DEFS[nxt.bosses[1].id].name .. "!"
+        end
+        local msg = P.combat and ("VOCE DERROTOU O " .. boss_names() .. "!") or ("VOCE ESCAPOU DO " .. boss_names() .. "!")
         local pts = collected * 100 + (P.combat and #bosses * 1000 or 0)
         panel({
             { msg, 0x6abe30 },
@@ -1481,7 +1533,28 @@ function loop(frame)
             { P.card .. ": " .. collected, 0xfbf236 },
             { "PONTUACAO: " .. pts, 0xffffff },
             { "", 0xffffff },
-            { blink and "APERTE Z PARA VOLTAR AO MENU" or "", 0xcbdbfc },
+            { "PROXIMA: " .. phase_name(phase + 1), 0xffffff },
+            { who, 0xac3232 },
+            { "", 0xffffff },
+            { blink and "APERTE A PARA CONTINUAR" or "", 0xcbdbfc },
+        })
+    elseif state == "win" and single then
+        local msg
+        if P.final then
+            msg = "VOCE DERROTOU TODOS OS PRESIDENTES!"
+        elseif P.combat then
+            msg = "VOCE DERROTOU O " .. boss_names() .. "!"
+        else
+            msg = "VOCE ESCAPOU DO " .. boss_names() .. "!"
+        end
+        local pts = collected * 100 + (P.combat and #bosses * 1000 or 0)
+        panel({
+            { msg, 0x6abe30 },
+            { "", 0xffffff },
+            { P.card .. ": " .. collected, 0xfbf236 },
+            { "PONTUACAO: " .. pts, 0xffffff },
+            { "", 0xffffff },
+            { blink and "APERTE A PARA VOLTAR AO MENU" or "", 0xcbdbfc },
         })
     elseif state == "win" then
         local lines = { { "VOCE DERROTOU TODOS OS PRESIDENTES!", 0x6abe30 } }
@@ -1490,13 +1563,13 @@ function loop(frame)
             local s = scores[i]
             if s then
                 total = total + s.cards * 100 + s.bosses * 1000
-                lines[#lines + 1] = { ph.country .. " - " .. ph.card .. ": " .. s.cards, 0xfbf236 }
+                local name = ph.final and "FINAL" or ((ph.combat and "COMBATE " or "") .. ph.country)
+                lines[#lines + 1] = { name .. ": " .. s.cards .. " CARTOES", 0xfbf236 }
             end
         end
         lines[#lines + 1] = { "PONTUACAO TOTAL: " .. total, 0xffffff }
-        lines[#lines + 1] = { "FASES LIBERADAS NO MENU!", 0xd77bba }
-        lines[#lines + 1] = { blink and "APERTE Z PARA VOLTAR AO MENU" or "", 0xcbdbfc }
-        panel(lines, 8)
+        lines[#lines + 1] = { blink and "APERTE A PARA VOLTAR AO MENU" or "FASES LIBERADAS NO MENU!", 0xcbdbfc }
+        panel(lines, 4)
     elseif state == "caught" and endT > 40 then
         local who = #bosses > 1 and "OS PRESIDENTES TE PEGARAM!" or ("O " .. boss_names() .. " TE PEGOU!")
         panel({
@@ -1505,8 +1578,8 @@ function loop(frame)
             { "LOCAL: " .. REGIONS[region_at(p.x)].name, 0xffffff },
             { P.card .. ": " .. collected, 0xfbf236 },
             { "", 0xffffff },
-            { blink and "Z: TENTAR DE NOVO" or "", 0xcbdbfc },
-            { "X: VOLTAR AO MENU", 0xcbdbfc },
+            { blink and "A: TENTAR DE NOVO" or "", 0xcbdbfc },
+            { "B: VOLTAR AO MENU", 0xcbdbfc },
         })
     end
 end
