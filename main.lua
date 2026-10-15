@@ -229,10 +229,10 @@ local PHASES = {
         draw_chaser = draw_trump,
         regions = {
             { name = "NEW YORK",      sky = 0x639bff, lm = lm_liberty,    map = "......c.c.c....b....c.c.c...h....b..a." },
-            { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "..h...ccc...b...h...B....a.a...h..b.." },
-            { name = "TEXAS",         sky = 0xd9a066, lm = lm_texas,      map = "..b..b...ccc..h..h...B...b..a..h..cc." },
-            { name = "LAS VEGAS",     sky = 0x222034, lm = lm_vegas,      map = ".h..b..ccc..h..B..h...b..b..a.a..h...", night = true },
-            { name = "HOLLYWOOD",     sky = 0xdf7126, lm = lm_hollywood,  map = "..b..h..ccc..B..h..b..h...b..ccc......" },
+            { name = "WASHINGTON DC", sky = 0x5fcde4, lm = lm_washington, map = "....h.ccc...b...h...B....a.a...h..b.." },
+            { name = "TEXAS",         sky = 0xd9a066, lm = lm_texas,      map = "....b..b.ccc..h..h...B...b..a..h..cc." },
+            { name = "LAS VEGAS",     sky = 0x222034, lm = lm_vegas,      map = "....h..b..ccc..h..B..h...b..b..a.a..h...", night = true },
+            { name = "HOLLYWOOD",     sky = 0xdf7126, lm = lm_hollywood,  map = "....b..h.ccc..B..h..b..h...b..ccc......" },
         },
     },
     {
@@ -242,9 +242,9 @@ local PHASES = {
         draw_chaser = draw_lula,
         regions = {
             { name = "SAO PAULO",      sky = 0x9badb7, lm = lm_saopaulo, map = "......c.c.c...b...h...ccc..b..a..h..B.." },
-            { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "..b..h..ccc..b..b..a.a..h..h..B...cc.." },
-            { name = "BRASILIA",       sky = 0x5fcde4, lm = lm_brasilia, map = ".h..b..ccc..B..h..b..h..a..b..b..ccc." },
-            { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "..h..b..ccc..h..B..b..h..a.a..b..ccc......", forest = true },
+            { name = "RIO DE JANEIRO", sky = 0x639bff, lm = lm_rio,      map = "....b..h.ccc..b..b..a.a..h..h..B...cc.." },
+            { name = "BRASILIA",       sky = 0x5fcde4, lm = lm_brasilia, map = "....h..b..ccc..B..h..b..h..a..b..b..ccc." },
+            { name = "AMAZONIA",       sky = 0x99e550, lm = lm_amazonia, map = "....h..b.ccc..h..B..b..h..a.a..b..ccc......", forest = true },
         },
     },
 }
