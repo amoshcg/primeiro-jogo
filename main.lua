@@ -104,22 +104,27 @@ local function draw_trump(x, y, frame)
     ui.trisfill(x + 10, y - 46 + h, x + 21, y - 43 + h, x + 10, y - 40, C(0xfbf236))
 end
 
-local function draw_xi(x, y)
-    -- terno azul, gravata vermelha, rosto e cabelo preto penteado
+local function draw_xi(x, y, frame)
+    -- terno azul, gravata vermelha (balancando), rosto e cabelo preto penteado
     ui.rectfill(x, y - 30, x + 16, y, C(0x306082))
     ui.rectfill(x + 6, y - 30, x + 10, y - 26, C(0xffffff))
-    ui.rectfill(x + 7, y - 26, x + 9, y - 10, C(0xac3232))
+    local t = flr(math.sin(frame * 0.4) * 4)
+    ui.rectfill(x + 7, y - 27, x + 9, y - 25, C(0xac3232))
+    ui.trisfill(x + 7, y - 25, x + 9, y - 25, x + 9 + t, y - 11, C(0xac3232))
+    ui.trisfill(x + 7, y - 25, x + 7 + t, y - 11, x + 9 + t, y - 11, C(0xac3232))
     ui.rectfill(x + 2, y - 41, x + 16, y - 30, C(0xeec39a))
     ui.rectfill(x + 12, y - 37, x + 13, y - 36, C(0x000000))
     ui.rectfill(x + 1, y - 45, x + 16, y - 40, C(0x000000))
     ui.rectfill(x + 1, y - 40, x + 3, y - 35, C(0x000000))
 end
 
-local function draw_lula(x, y)
-    -- camiseta vermelha, rosto, barba branca e chapeu
+local function draw_lula(x, y, frame)
+    -- camiseta vermelha, rosto, barba branca (mexendo) e chapeu
     ui.rectfill(x, y - 30, x + 16, y, C(0xac3232))
     ui.rectfill(x + 2, y - 42, x + 16, y - 30, C(0xeec39a))
-    ui.rectfill(x + 2, y - 35, x + 17, y - 28, C(0xffffff))
+    local b = flr(math.abs(math.sin(frame * 0.35)) * 3)
+    ui.rectfill(x + 2, y - 35, x + 17, y - 28 + b, C(0xffffff))
+    ui.rectfill(x + 6, y - 28 + b, x + 15, y - 26 + b, C(0xffffff))
     ui.rectfill(x + 12, y - 39, x + 13, y - 38, C(0x000000))
     ui.rectfill(x - 2, y - 44, x + 20, y - 42, C(0x8a6f30))
     ui.rectfill(x + 2, y - 50, x + 15, y - 44, C(0x8a6f30))
@@ -189,7 +194,7 @@ local function palm(px)
 end
 
 local function lm_hollywood(x)
-    ui.circfill(x + 60, g + 40, 100, C(0x8f563b))
+    ui.trisfill(x - 40, g, x + 160, g, x + 60, g - 60, C(0x8f563b))
     ui.print("HOLLYWOOD", x + 32, g - 46, C(0xffffff))
     palm(x - 40)
     palm(x + 190)
@@ -207,8 +212,8 @@ end
 
 local function lm_rio(x)
     -- Pao de Acucar e Cristo Redentor
-    ui.circfill(x + 20, g + 10, 60, C(0x4b692f))
-    ui.circfill(x + 150, g, 40, C(0x37946e))
+    ui.trisfill(x - 30, g, x + 70, g, x + 20, g - 50, C(0x4b692f))
+    ui.trisfill(x + 110, g, x + 190, g, x + 150, g - 40, C(0x37946e))
     ui.rectfill(x + 18, g - 76, x + 22, g - 48, C(0xffffff))
     ui.rectfill(x + 6, g - 70, x + 34, g - 66, C(0xffffff))
     ui.circfill(x + 20, g - 79, 3, C(0xffffff))
@@ -230,9 +235,8 @@ local function lm_amazonia(x)
         local tx = x + k * 50
         local th = 50 + (k * 23) % 30
         ui.rectfill(tx - 3, g - th, tx + 3, g, C(0x663931))
-        ui.circfill(tx, g - th, 20, C(0x37946e))
-        ui.circfill(tx - 12, g - th + 10, 12, C(0x4b692f))
-        ui.circfill(tx + 12, g - th + 8, 12, C(0x6abe30))
+        ui.rectfill(tx - 20, g - th - 10, tx + 20, g - th + 8, C(0x37946e))
+        ui.rectfill(tx - 12, g - th - 18, tx + 12, g - th - 10, C(0x6abe30))
     end
 end
 
@@ -248,7 +252,7 @@ end
 
 local function lm_muralha(x)
     -- Grande Muralha sobre os morros
-    ui.circfill(x + 60, g + 60, 110, C(0x4b692f))
+    ui.trisfill(x - 60, g, x + 180, g, x + 60, g - 50, C(0x4b692f))
     ui.rectfill(x - 40, g - 34, x + 160, g - 24, C(0x847e87))
     for k = 0, 24 do
         if k % 2 == 0 then
@@ -380,6 +384,9 @@ end
 -- Estado do jogo
 -- ===================================================================
 local state = "title"   -- title | run | caught | clear | win
+local menu_sel = 1      -- item selecionado no menu
+local unlocked = false  -- fases liberadas depois de zerar o jogo
+local single = false    -- jogando apenas uma fase escolhida no menu
 local p = {}
 local chaser = {}
 local collected = 0
@@ -401,8 +408,13 @@ local function start_phase(n)
     state = "run"
 end
 
-start_phase(1)
-state = "title"
+local function go_title()
+    start_phase(1)
+    state = "title"
+    menu_sel = 1
+end
+
+go_title()
 
 local function player_box()
     if p.slide > 0 then
@@ -497,7 +509,12 @@ local function update_run()
 
     if p.x >= FINISH then
         scores[phase] = { got = collected, total = #cards }
-        state = (phase < #PHASES) and "clear" or "win"
+        if single or phase == #PHASES then
+            state = "win"
+            if not single then unlocked = true end
+        else
+            state = "clear"
+        end
         endT = 0
     end
 end
@@ -539,7 +556,9 @@ local function draw_world(cam)
         local h = 30 + (k * 37) % 60
         local x = flr(k * 40 - bcam)
         if reg.forest then
-            ui.circfill(x + 17, GROUND, h, C(0x4b692f))
+            -- arvores simples de retangulos (leve para desenhar)
+            ui.rectfill(x + 15, GROUND - h + 10, x + 19, GROUND, C(0x663931))
+            ui.rectfill(x + 2, GROUND - h, x + 32, GROUND - h + 16, C(0x4b692f))
         else
             local bcol = reg.night and C(0x3f3f74) or C(0x9badb7)
             ui.rectfill(x, GROUND - h, x + 34, GROUND, bcol)
@@ -703,6 +722,75 @@ local function panel(lines)
 end
 
 -- ===================================================================
+-- Menu inicial
+-- ===================================================================
+local function menu_items()
+    local items = { { label = "JOGAR TODAS AS FASES", phase = 0 } }
+    for n, ph in ipairs(PHASES) do
+        items[#items + 1] = { label = "FASE " .. n .. " - " .. ph.country, phase = n, locked = not unlocked }
+    end
+    return items
+end
+
+local function update_title()
+    local items = menu_items()
+    local count = unlocked and #items or 1
+    if ui.btnp(DOWN) then menu_sel = menu_sel % count + 1 end
+    if ui.btnp(UP) then menu_sel = (menu_sel - 2) % count + 1 end
+    if ui.btnp(BTN_Z) then
+        local it = items[menu_sel]
+        scores = {}
+        single = it.phase > 0
+        start_phase(single and it.phase or 1)
+    end
+end
+
+local function draw_title(frame)
+    local K = C(0x222034)
+
+    -- titulo
+    ui.rectfill(110, 20, 370, 60, K)
+    ui.rect(110, 20, 370, 60, C(0xfbf236))
+    local t = "TRUMP'S RUN"
+    ui.print(t, cx(t), 30, C(0xfbf236))
+    t = "FUJA DOS PRESIDENTES PELO MUNDO"
+    ui.print(t, cx(t), 44, C(0xffffff))
+
+    -- opcoes
+    local items = menu_items()
+    local y0 = 74
+    local y1 = y0 + #items * 16 + (unlocked and 8 or 22)
+    ui.rectfill(130, y0, 350, y1, K)
+    ui.rect(130, y0, 350, y1, C(0xffffff))
+    for i, it in ipairs(items) do
+        local y = y0 + 8 + (i - 1) * 16
+        local col = C(0xffffff)
+        if it.locked then
+            col = C(0x847e87)
+        elseif i == menu_sel then
+            col = C(0xfbf236)
+            if flr(frame / 15) % 2 == 0 then
+                ui.print(">", 140, y, col)
+            end
+        end
+        ui.print(it.label, cx(it.label), y, col)
+    end
+    if not unlocked then
+        t = "ZERE O JOGO PARA ESCOLHER A FASE"
+        ui.print(t, cx(t), y1 - 14, C(0xd77bba))
+    end
+
+    -- os presidentes esperando a corrida
+    draw_trump(330, GROUND, frame)
+    draw_lula(370, GROUND, frame)
+    draw_xi(410, GROUND, frame)
+
+    -- controles na estrada
+    t = "Z/CIMA: PULAR   X/BAIXO: DESLIZAR   Z: ESCOLHER"
+    ui.print(t, cx(t), GROUND + 8, C(0xffffff))
+end
+
+-- ===================================================================
 -- Loop principal
 -- ===================================================================
 Frame_now = 0
@@ -719,22 +807,22 @@ function loop(frame)
     ui.camera(0, 0)
 
     if state == "title" then
-        if ui.btnp(BTN_Z) or ui.btnp(UP) then
-            scores = {}
-            start_phase(1)
-        end
+        update_title()
     elseif state == "run" then
         update_run()
     else
         endT = endT + 1
-        if endT > 30 and ui.btnp(BTN_Z) then
-            if state == "clear" then
-                start_phase(phase + 1)
-            elseif state == "win" then
-                scores = {}
-                start_phase(1)
-            else
-                start_phase(phase)   -- pego: tenta a mesma fase de novo
+        if endT > 30 then
+            if ui.btnp(BTN_Z) then
+                if state == "clear" then
+                    start_phase(phase + 1)
+                elseif state == "win" then
+                    go_title()
+                else
+                    start_phase(phase)   -- pego: tenta a mesma fase de novo
+                end
+            elseif ui.btnp(BTN_X) and state == "caught" then
+                go_title()
             end
         end
     end
@@ -749,17 +837,7 @@ function loop(frame)
 
     local blink = flr(frame / 30) % 2 == 0
     if state == "title" then
-        panel({
-            { "TRUMP'S RUN", 0xfbf236 },
-            { "FASE 1: EUA - FUJA DO TRUMP!", 0xffffff },
-            { "FASE 2: BRASIL - FUJA DO LULA!", 0xffffff },
-            { "FASE 3: CHINA - FUJA DO XI JINPING!", 0xffffff },
-            { "CIMA / Z : PULAR", 0xcbdbfc },
-            { "BAIXO / X : DESLIZAR", 0xcbdbfc },
-            { "COLETE OS CARTOES DE CADA PAIS", 0x6abe30 },
-            { "", 0xffffff },
-            { blink and "APERTE Z PARA COMECAR" or "", 0xffffff },
-        })
+        draw_title(frame)
     elseif state == "clear" then
         local nxt = PHASES[phase + 1]
         panel({
@@ -773,6 +851,15 @@ function loop(frame)
             { "", 0xffffff },
             { blink and "APERTE Z PARA CONTINUAR" or "", 0xcbdbfc },
         })
+    elseif state == "win" and single then
+        panel({
+            { P.finish, 0x6abe30 },
+            { "", 0xffffff },
+            { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
+            { "PONTUACAO: " .. collected * 100, 0xffffff },
+            { "", 0xffffff },
+            { blink and "APERTE Z PARA VOLTAR AO MENU" or "", 0xcbdbfc },
+        })
     elseif state == "win" then
         local lines = { { "VOCE ESCAPOU DE TODOS!", 0x6abe30 }, { "", 0xffffff } }
         local total = 0
@@ -784,8 +871,9 @@ function loop(frame)
             end
         end
         lines[#lines + 1] = { "PONTUACAO TOTAL: " .. total * 100, 0xffffff }
+        lines[#lines + 1] = { "FASES LIBERADAS NO MENU!", 0xd77bba }
         lines[#lines + 1] = { "", 0xffffff }
-        lines[#lines + 1] = { blink and "APERTE Z PARA JOGAR DE NOVO" or "", 0xcbdbfc }
+        lines[#lines + 1] = { blink and "APERTE Z PARA VOLTAR AO MENU" or "", 0xcbdbfc }
         panel(lines)
     elseif state == "caught" and endT > 40 then
         panel({
@@ -794,7 +882,8 @@ function loop(frame)
             { "LOCAL: " .. REGIONS[region_at(p.x)].name, 0xffffff },
             { P.card .. ": " .. collected .. " / " .. #cards, 0xfbf236 },
             { "", 0xffffff },
-            { blink and "APERTE Z PARA TENTAR DE NOVO" or "", 0xcbdbfc },
+            { blink and "Z: TENTAR DE NOVO" or "", 0xcbdbfc },
+            { "X: VOLTAR AO MENU", 0xcbdbfc },
         })
     end
 end
