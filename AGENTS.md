@@ -1,137 +1,82 @@
-# Lupi Game API Reference
+# Referência da API do Lupi (firmware 0.6.8)
 
-## System Overview
-- Resolution: 480x270 pixels (16:9 widescreen)
-- Color: 256-color indexed palette (RGB555 format)
-- Frame rate: 60 FPS target
-- Main callback: `update(frame)` - called 60 times per second with frame number
-- **Important:** Palette must be registered each frame using `ui.palset(index, color)`
+Documentação completa: https://lupi.api.br/docs/
 
-## Global Constants
-- `LEFT`, `RIGHT`, `UP`, `DOWN` - Directional buttons (0-3)
-- `BTN_Z`, `BTN_X` - Action buttons (4-5)
-- `BTN_F`, `BTN_G` - Secondary action buttons (12-13)
-- `BTN_Q`, `BTN_E` - Shoulder buttons (14-15)
-- `ALIGN_START`, `ALIGN_CENTER`, `ALIGN_END` - Layout alignment
-- `LEFT_TO_RIGHT`, `TOP_TO_BOTTOM` - Layout direction
+## Básico
+- Tela: 480x270 pixels, 60 quadros por segundo.
+- Paleta: até 256 cores por índice (0-255). Cores em BGR555 (`0BBBBBGGGGGRRRRR`).
+- `game.lua` é o arquivo principal. O código fora de funções roda uma vez.
+- `update(frame)` roda 60 vezes por segundo e recebe o número do quadro.
+- A paleta zera a cada quadro: chame `ui.palset` no começo de `update`.
+- `require "modulo"` carrega `modulo.lua`; `require "pasta.modulo"` carrega `pasta/modulo.lua`.
+- Bibliotecas Lua: base, `table`, `string`, `math`, `utf8`. Não há `io` nem `os`.
 
-## Graphics API (ui.*)
+## Gerados a partir do repositório
+- `require "palette"`: global `Palette` com as cores dos PNGs. `Palette[i]` é a cor do índice `i - 1`.
+- `Palette.hex("#rrggbb")` ou `Palette.hex(0xrrggbb)` e `Palette.rgb(r, g, b)`: índice da cor mais parecida.
+- `require "sprites"`: global `Sprites` (somente leitura). `Sprites.pasta.arquivo` ou `Sprites.find("arquivo")`.
+- Mapa do Tiled: `local mapa = require "maps.fase1"`; cada camada é `mapa.nome_da_camada`.
+- Fonte em PNG: `local fonte = ui.register_font(require "font.minha_fonte")`.
 
-### Screen
-- `ui.cls([color])` - Clear screen with color (default: 1)
-- `ui.clip([x, y, w, h])` - Set/reset clipping region
-- `ui.camera([x, y])` - Set/reset camera offset for drawing
+## Constantes
+- Botões: `LEFT`, `RIGHT`, `UP`, `DOWN`, `BTN_Z`, `BTN_X`, `BTN_F`, `BTN_G`, `BTN_Q`, `BTN_E`, `BTN_SYSTEM`.
+- Zoom: `ZOOM_P5`, `ZOOM_P75`, `ZOOM_1X`, `ZOOM_1P25`, `ZOOM_1P5`, `ZOOM_1P75`, `ZOOM_2X`.
+- Canais de música: `CH_1` a `CH_16`, `CH_ALL` (combine com `|`).
+- Layout: `ALIGN_START`, `ALIGN_CENTER`, `ALIGN_END`, `LEFT_TO_RIGHT`, `TOP_TO_BOTTOM`.
 
-### Primitives
-- `ui.rect(x0, y0, x1, y1, color)` - Draw rectangle outline
-- `ui.rectfill(x0, y0, x1, y1, color)` - Draw filled rectangle
-- `ui.circ(x, y, radius, color)` - Draw circle outline
-- `ui.circfill(x, y, radius, color)` - Draw filled circle
-- `ui.line(x0, y0, x1, y1, color)` - Draw line
-- `ui.trisfill(x1, y1, x2, y2, x3, y3, color)` - Draw filled triangle
-- `ui.grid(x, y, cell_w, cell_h, data)` - Draw pixel grid from 2D table
+## Tela (ui)
+- `ui.cls([cor])`: limpa a tela (padrão: cor 1).
+- `ui.palset(indice, cor)`: define uma cor da paleta (índice 0-255, cor BGR555).
+- `ui.clip(x, y, w, h)` / `ui.clip()`: limita onde se desenha / volta pra tela toda.
+- `ui.camera(x, y)` / `ui.camera()`: desloca tudo que é desenhado / volta pra (0, 0).
+- `ui.fillp(b1, ..., b8)` / `ui.fillp()`: padrão 8x8 pras formas / volta pro sólido.
 
-### Sprites & Maps
-- `ui.spr(sprite_ref, x, y, [flip_x], [flip_y])` - Draw sprite (tile 0)
-- `ui.tile(sprite_ref, tile_id, x, y, [flip_x], [flip_y])` - Draw specific tile (0-1023)
-- `ui.map(map_data, cam_x, cam_y)` - Draw map with camera offset
+## Formas (ui)
+- `ui.rect(x0, y0, x1, y1, cor)` e `ui.rectfill(x0, y0, x1, y1, cor)`.
+- `ui.circ(x, y, raio, cor)` e `ui.circfill(x, y, raio, cor)`.
+- `ui.line(x0, y0, x1, y1, cor)`.
+- `ui.trisfill(x1, y1, x2, y2, x3, y3, cor)`.
+- `ui.grid(x, y, largura_celula, altura_celula, linhas)`: `linhas` é uma tabela de linhas com índices de cor.
 
-### Text
-- `ui.print(text, x, y, color)` - Draw text string
+## Imagens (ui)
+- `ui.spr(sprite, x, y, [virar_x], [virar_y])`: desenha o primeiro tile.
+- `ui.tile(sprite, id, x, y, [virar_x], [virar_y])`: desenha o tile `id` de um sheet.
+- `ui.map(camada, [x], [y])`: desenha uma camada de mapa do Tiled.
+- `ui.img(linhas, x, y, [zoom])`: imagem feita de tabelas de índices (até 16 cores, até 511x511).
+- `ui.load_lgf("nome")`: carrega `nome.lgf` (vem de `nome.gif`). Campos: `.frames`, `.width`, `.height`, `.loop`, `:delay(quadro)`.
+- `ui.lgf(anim, x, y, quadro, [zoom], [coluna], [largura])`: desenha um quadro da animação.
 
-### Palette & Patterns
-- `ui.palset(index, color)` - Set palette color (index 0-255, color RGB555)
-- `ui.fillp([b0, b1, b2, b3, b4, b5, b6, b7])` - Set fill pattern (8 bytes) or reset
+## Texto (ui)
+- `ui.print(texto, x, y, cor, [fonte])`.
+- `ui.text_width(texto, [fonte])`: largura em pixels.
+- `ui.register_font(tabela)`: registra uma fonte e devolve o id (até 2 por jogo).
 
-### Utility
-- `ui.mid(a, b, c)` - Return middle value (useful for clamping)
-- `ui.stat(option)` - Get system stats: 0=memory, 1=CPU, 7=FPS
+## Entrada e sistema (ui)
+- `ui.btn(botao, [jogador])` e `ui.btnp(botao, [jogador])`: `false` ou a pressão (1-255). Jogador 0-2.
+- `ui.mouse()`: x, y, botões (bit 0 esquerdo, bit 1 direito), 0, 0. Mouse USB.
+- `ui.peektext()` / `ui.readtext()`: próximo caractere do teclado USB, ou `nil`.
+- `ui.stat(0)` memória Lua em bytes, `ui.stat(1)` uso de CPU, `ui.stat(7)` FPS.
 
-## Input API
+## Layout
+- `ui.layout(raiz)`: calcula e desenha a árvore.
+- Nós: `Box()`, `Text("texto")`, `Image(sprite)`, `Custom(function(x, y, w, h) end)`.
+- Nada é encadeado: cada configuração é uma linha, como `box.gap.set(4)`.
+- Crie cada nó numa variável antes de `pai.add_child(filho)`.
+- Box e Custom: `size.width.set_fixed|set_percentage|set_grow|set_fit`, o mesmo em `size.height`, `padding.set_all(px)`, `padding.set(cima, direita, baixo, esquerda)`, `gap.set(px)`, `set_direction(dir)`, `alignment.horizontal.set(a)`, `alignment.vertical.set(a)`, `color.set(cor)`, `corner.set_radius(px)`, `clip.set_vertical(b)`, `clip.set_horizontal(b)`, `clip.set_child_offset(x, y)`, `add_child(no)`, `remove()`, `set_visible(b)`.
+- Cantos: `corner.set_top_left_radius`, `set_top_right_radius`, `set_bottom_left_radius`, `set_bottom_right_radius`, `set_top_radius`, `set_bottom_radius`, `set_left_radius`, `set_right_radius` (0-16 px).
+- Text: `color.set`, `font.set_id`, `letter_spacing.set`, `line_height.set`, `set_visible`, `remove`.
+- Image: `color.set`, cantos, `remove`.
 
-### Gamepad
-- `ui.btn(button_id, [player])` - Check if button held (returns false or pressure 0-255)
-- `ui.btnp(button_id, [player])` - Check if button just pressed (edge detection)
-- Player index: 0-2 (default: 0)
+## Áudio
+- `music.play("nome", [fade])` e `music.loop("nome", [fade])`: toca `nome.las` (vem de `nome.fur`).
+- `music.stop([fade])`.
+- `music.volume(v, [canais], [fade])`: v de 0 a 1, canais como `CH_1 | CH_2`.
+- `sfx.volume([v])`: volume geral de 0 a 1 (sem valor: 1).
+- `fade` é sempre em segundos, de 0 a 10.
 
-### Mouse
-- `ui.mouse()` - Returns: x, y, buttons, wheel_x, wheel_y
-- buttons bitfield: bit 0 = left, bit 1 = right
-
-### Keyboard
-- `ui.peektext()` - Peek next char without removing (returns string or nil)
-- `ui.readtext()` - Read and remove next char (returns string or nil)
-
-## Audio API (sfx.*)
-
-- `sfx.music(music_name)` - Play music file (string), use -1 to stop
-- `sfx.fx(sample_id, midi_note, [pan])` - Play sound effect (pan: 0.0-1.0, default 0.5)
-- `sfx.volume(vol)` - Set global volume (0.0-1.0)
-
-## Layout API (Clay)
-
-### Main Function
-- `ui.layout(root_node)` - Render layout tree (call in _draw)
-
-### Elements
-- `Box()` - Container element (like div)
-- `Text()` - Text element
-- `Image(sprite_ref)` - Image element
-- `Custom(callback)` - Custom drawing callback
-
-### Builder Methods (chainable)
-- `.size.width.set.fixed(px)` / `.set.percentage(0.0-1.0)` / `.set.grow()` / `.set.fit()`
-- `.size.height.set.fixed(px)` / `.set.percentage(0.0-1.0)` / `.set.grow()` / `.set.fit()`
-- `.padding.set.all(px)` / `.set(x, y)`
-- `.gap.set(px)` - Space between children
-- `.alignment.horizontal.set(ALIGN_START|ALIGN_CENTER|ALIGN_END)`
-- `.alignment.vertical.set(ALIGN_START|ALIGN_CENTER|ALIGN_END)`
-- `.set.direction(LEFT_TO_RIGHT|TOP_TO_BOTTOM)`
-- `.color.set(palette_index)` - Background color
-- `.corner.set.radius(px)` - Rounded corners
-- `.add.child(node)` - Add child element
-- `.set.visible(bool)` - Show/hide
-
-### Text-specific
-- `.content(string)` - Set text content
-- `.letter_spacing.set(px)` - Letter spacing
-- `.line_height.set(px)` - Line height
-
-### Custom-specific
-- Callback receives: x, y, width, height
-
-## Example Game Loop
-
-```lua
--- Define palette (RGB555 colors, indices 0-99)
-Palette = {
-    0x0000, 0x0000, 0x0022, 0x02FF, 0x6FF7, 0x7EE7, 0x0001, 0x5FF7,
-    0x2D00, 0x01F5, 0x3F7F, 0x2108, 0x5B5E, 0x4620, 0x00CA, 0x3DEF,
-    -- ... add more colors as needed
-}
-
--- Initialize game state (runs once when script loads)
-player = { x = 240, y = 135 }
-
-function update(frame)
-    -- Register palette colors (required each frame)
-    for i = 1, #Palette do
-        ui.palset(i - 1, Palette[i])
-    end
-    
-    -- Input handling
-    if ui.btn(LEFT) then player.x = player.x - 2 end
-    if ui.btn(RIGHT) then player.x = player.x + 2 end
-    if ui.btn(UP) then player.y = player.y - 2 end
-    if ui.btn(DOWN) then player.y = player.y + 2 end
-    
-    -- Clamp to screen
-    player.x = ui.mid(0, player.x, 480)
-    player.y = ui.mid(0, player.y, 270)
-    
-    -- Drawing
-    ui.cls(1)  -- Clear with color 1
-    ui.circfill(player.x, player.y, 8, 7)  -- Draw player
-    ui.print("Frame: " .. frame, 10, 10, 7)
-end
-```
+## Util
+- `util.clamp(v, a, b)`, `util.sign(v)`, `util.round(v)`, `util.approach(atual, alvo, passo)`.
+- `util.lerp(a, b, t)`, `util.wrap(v, min, max)`, `util.flash(frame, hz)`, `util.remap(v, a1, b1, a2, b2)`.
+- `util.vec_normalize(v, [saida])`, `util.vec_dist(a, b)`, `util.vec_dist_sq(a, b)`, `util.vec_from_angle(ang, [tam], [saida])`.
+- `util.point_in_rect(p, r)`, `util.point_in_circ(p, c)`, `util.rect_overlap(a, b)`, `util.circ_overlap(a, b)`, `util.circ_rect_overlap(c, r)`.
+- Vetores, retângulos e círculos são tabelas com `x`, `y`, `w`, `h`, `r`.

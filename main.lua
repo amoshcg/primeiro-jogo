@@ -1205,7 +1205,7 @@ local function draw_hud(frame)
         local bx0, bx1 = 200, 460
         ui.print("CHEGADA", bx0, 8, C(0xffffff))
         local px = bx0 + 48
-        bar(px, 9, bx1 - px, ui.mid(0, p.x / FINISH, 1), C(0x6abe30))
+        bar(px, 9, bx1 - px, util.clamp(p.x / FINISH, 0, 1), C(0x6abe30))
     end
 
     -- aviso de troca no revezamento
@@ -1340,7 +1340,7 @@ local function draw_demo(kind, frame)
         draw_runner(290, gy, false, frame)
         draw_visa_card(330, gy - 12)
     end
-    ui.clip(0, 0, 480, 270)
+    ui.clip()
     ui.rect(bx0, by0, bx1, by1, C(0xffffff))
 end
 
@@ -1657,8 +1657,8 @@ function loop(frame)
         ui.palset(i - 1, color)
     end
 
-    ui.clip(0, 0, 480, 270)
-    ui.camera(0, 0)
+    ui.clip()
+    ui.camera()
 
     if state == "title" then
         update_title()
